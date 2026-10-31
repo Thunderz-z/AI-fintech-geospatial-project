@@ -67,22 +67,23 @@ datasets:
     status: planned
 
   - id: pallikaranai-study-boundary
-    name: Pallikaranai Marsh study boundary
-    provider: "INVESTIGATE: TN Wetlands Authority / TN Forest Dept / Ramsar RSIS (reported Ramsar 2022 - verify)"
-    source_url: "https://rsis.ramsar.org (verification)"
-    license: "as per source (to determine)"
-    spatial_coverage: "Pallikaranai Marsh, Chennai"
-    temporal_coverage: n/a
+    name: Pallikaranai Marsh study boundary (Ramsar site IN2481 polygon)
+    provider: "Ramsar Sites Information Service - Convention on Wetlands (Ramsar Secretariat) / Wetlands International (Ramsar Sites Database)"
+    source_url: "https://rsis.ramsar.org/ris/2481"
+    license: CC-BY-4.0
+    attribution: "Ramsar Sites Information Service (rsis.ramsar.org) - Convention on Wetlands (Ramsar Secretariat) / Wetlands International"
+    spatial_coverage: "Pallikaranai Marsh Reserve Forest, Chennai (Ramsar site no. 2481; 1,247.54 ha; centroid ~12.928N 80.220E)"
+    temporal_coverage: "boundary as published 2022 (designation 2022-04-08)"
     resolution: vector
-    format: GeoJSON
+    format: "SHAPE-ZIP or GeoJSON via WFS"
     expected_size: "< 1 MB"
-    access_method: "TBD - authoritative machine-readable boundary not yet verified"
-    required_preprocessing: "document provenance + digitization method if approximate"
-    intended_use: "study-area definition"
-    known_limitations: "APPROXIMATE boundary in use until an authoritative source is verified; never present as legal wetland boundary"
+    access_method: "WFS GetFeature (verified via GetCapabilities; Fees NONE, AccessConstraints NONE): https://rsis.ramsar.org/geoserver/wfs?request=GetFeature&service=wfs&version=1.0.0&typename=ramsar_sdi:features_param_idrvis&viewparams=idrvis:42511262&outputformat=SHAPE-ZIP (outputformat=JSON for GeoJSON)"
+    required_preprocessing: "verify geometry type (polygon expected) + vertex quality; reproject to EPSG:4326/32644 as needed; document acquisition in this manifest with checksum"
+    intended_use: "authoritative study-area definition for the Ramsar-listed Reserve Forest; primary measurement boundary"
+    known_limitations: "Covers the Ramsar-listed Reserve Forest (1,247.54 ha) ONLY - not the full historical marsh ecosystem (~80 sq km historical extent). Broader-marsh context keeps the APPROXIMATE polygon (never present as legal boundary; limitation recorded in EvidenceContract). Geometry type to verify at acquisition."
     acquisition_date: null
     checksums: null
-    status: planned  # boundary source investigation is the first acquisition task
+    status: planned  # source VERIFIED 2026-10-31 (web research); download gated behind approval
 
   - id: dynamic-world-aoi
     name: Dynamic World LULC probabilities (AOI)
