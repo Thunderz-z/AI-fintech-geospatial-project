@@ -1,6 +1,8 @@
 # FinGuard dataset manifest
-# Status: PLANNED - nothing acquired yet. Kaggle terms must be accepted by the
-# account owner before any download; record acceptance state here at that time.
+# Status: PLANNED - nothing acquired yet. IBM AML Kaggle listing verified 2026-10-31
+# (license, file names, sizes read from the live listing); Kaggle terms must still be
+# accepted by the account owner before any download; record acceptance state here at
+# that time. Exact row counts + checksums are "to verify" until files are on disk.
 # Storage budget: <= 5 GB total; no single download > 500 MB without approval.
 
 schema_version: "1.0.0"
@@ -12,36 +14,42 @@ datasets:
 
   - id: ibm-aml-li-small
     name: IBM AML synthetic transactions - LI-Small
-    provider: "IBM (synthetic data for AML research; Weber et al. 2019 'Tabformer')"
-    source_url: "https://www.kaggle.com/datasets (verify exact IBM-AML listing)"
-    license: "research distribution - verify exact terms at download"
+    provider: "IBM (Erik Altman et al.; Kaggle owner ealtman2019; Weber et al. 2019 origin)"
+    source_url: "https://www.kaggle.com/datasets/ealtman2019/ibm-transactions-for-anti-money-laundering-aml (file: LI-Small_Trans.csv)"
+    license: "CDLA-Sharing-1.0 (verified on Kaggle listing 2026-10-31 and IBM/AML-Data README); Kaggle account terms acceptance required at download"
     spatial_coverage: n/a
-    temporal_coverage: "synthetic ~200-day window (approx., verify)"
+    temporal_coverage: "synthetic primary window 2022-09-01..2022-09-10 (10 days); some laundering transactions occur AFTER the window (all post-window transactions are laundering; Kaggle discussion 427517)"
     resolution: n/a
     format: CSV
-    expected_size: "tens of MB (approx., verify)"
-    access_method: "Kaggle (manual / authenticated CLI after terms acceptance)"
-    required_preprocessing: "schema validation, timestamp parsing, typology-edge extraction for graph"
-    intended_use: "first transaction graph + AML motif development (smallest subset)"
-    known_limitations: "synthetic; planted typologies only; is-laundering flag labels planted patterns"
+    expected_size: "LI-Small_Trans.csv 650.42 MB + LI-Small_Patterns.txt 99.16 kB (verified from Kaggle file listing 2026-10-31); ~7M transactions per data card (to verify at download)"
+    access_method: "Kaggle (manual download by account owner after terms acceptance) - NOTE 650.42 MB exceeds the 500 MB gate; owner approval = the manual acquisition decision, recorded here at download"
+    required_preprocessing: "schema validation, timestamp parsing, typology-edge extraction for graph; columnar conversion (Parquet) for pipeline efficiency"
+    intended_use: "transaction graph + AML motif development (largest planted-typology count per byte among Small variants is HI-Small; LI-Small adds lower-imbalance regime)"
+    known_limitations: "synthetic; planted typologies only; is-laundering flag labels planted patterns; data-card stats are generator targets, not verified file stats"
+    files:
+      - "LI-Small_Trans.csv (650.42 MB, verified 2026-10-31)"
+      - "LI-Small_Patterns.txt (99.16 kB, verified 2026-10-31)"
     acquisition_date: null
     checksums: null
     status: planned
 
   - id: ibm-aml-hi-small
     name: IBM AML synthetic transactions - HI-Small
-    provider: "IBM (synthetic data for AML research; Weber et al. 2019 'Tabformer')"
-    source_url: "https://www.kaggle.com/datasets (verify exact IBM-AML listing)"
-    license: "research distribution - verify exact terms at download"
+    provider: "IBM (Erik Altman et al.; Kaggle owner ealtman2019; Weber et al. 2019 origin)"
+    source_url: "https://www.kaggle.com/datasets/ealtman2019/ibm-transactions-for-anti-money-laundering-aml (file: HI-Small_Trans.csv)"
+    license: "CDLA-Sharing-1.0 (verified on Kaggle listing 2026-10-31 and IBM/AML-Data README); Kaggle account terms acceptance required at download"
     spatial_coverage: n/a
-    temporal_coverage: "synthetic ~200-day window (approx., verify)"
+    temporal_coverage: "synthetic primary window 2022-09-01..2022-09-10 (10 days); some laundering transactions occur AFTER the window (all post-window transactions are laundering; Kaggle discussion 427517)"
     resolution: n/a
     format: CSV
-    expected_size: "~250 MB, ~5.2M transactions (approx., verify)"
-    access_method: "Kaggle (manual / authenticated CLI after terms acceptance)"
+    expected_size: "HI-Small_Trans.csv 475.66 MB + HI-Small_Patterns.txt 323.84 kB (verified from Kaggle file listing 2026-10-31); ~5M transactions / ~5.1K laundering per data card (to verify at download)"
+    access_method: "Kaggle (manual download by account owner after terms acceptance); 475.66 MB is below the 500 MB gate"
     required_preprocessing: "same as LI-Small; columnar conversion (Parquet) for pipeline efficiency"
-    intended_use: "primary fraud model + graph motif evaluation dataset"
-    known_limitations: "synthetic; class imbalance extreme (planted typologies ~0.1% of transactions)"
+    intended_use: "primary fraud model + graph motif evaluation dataset (higher illicit ratio)"
+    known_limitations: "synthetic; class imbalance extreme (planted typologies ~0.1% of transactions); data-card stats are generator targets, not verified file stats"
+    files:
+      - "HI-Small_Trans.csv (475.66 MB, verified 2026-10-31)"
+      - "HI-Small_Patterns.txt (323.84 kB, verified 2026-10-31)"
     acquisition_date: null
     checksums: null
     status: planned
