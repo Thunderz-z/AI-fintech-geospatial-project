@@ -3,7 +3,18 @@ name = "terrascope"
 version = "0.1.0"
 description = "Geospatial environmental intelligence for the Pallikaranai Marsh, Chennai: satellite ingestion, land-cover analytics and evidence-grounded reporting."
 requires-python = ">=3.13"
-dependencies = ["relia"]
+dependencies = [
+    "geopandas>=1.0.1",
+    "numpy>=2.1.0",
+    "pandas>=2.2.3",
+    "planetary-computer>=1.0.0",
+    "pyproj>=3.7.0",
+    "pystac-client>=0.8.3",
+    "rasterio>=1.4.3",
+    "relia",
+    "rioxarray>=0.17.0",
+    "shapely>=2.0.6",
+]
 
 [tool.uv.sources]
 relia = { workspace = true }
