@@ -1,0 +1,83 @@
+# FinGuard dataset manifest
+# Status: PLANNED - nothing acquired yet. Kaggle terms must be accepted by the
+# account owner before any download; record acceptance state here at that time.
+# Storage budget: <= 5 GB total; no single download > 500 MB without approval.
+
+schema_version: "1.0.0"
+updated: "2026-10-31"
+data_root_env: PORTFOLIO_DATA_ROOT
+project_root: "finguard"  # <data_root>/finguard/{raw,interim,processed,models}
+
+datasets:
+
+  - id: ibm-aml-li-small
+    name: IBM AML synthetic transactions - LI-Small
+    provider: "IBM (synthetic data for AML research; Weber et al. 2019 'Tabformer')"
+    source_url: "https://www.kaggle.com/datasets (verify exact IBM-AML listing)"
+    license: "research distribution - verify exact terms at download"
+    spatial_coverage: n/a
+    temporal_coverage: "synthetic ~200-day window (approx., verify)"
+    resolution: n/a
+    format: CSV
+    expected_size: "tens of MB (approx., verify)"
+    access_method: "Kaggle (manual / authenticated CLI after terms acceptance)"
+    required_preprocessing: "schema validation, timestamp parsing, typology-edge extraction for graph"
+    intended_use: "first transaction graph + AML motif development (smallest subset)"
+    known_limitations: "synthetic; planted typologies only; is-laundering flag labels planted patterns"
+    acquisition_date: null
+    checksums: null
+    status: planned
+
+  - id: ibm-aml-hi-small
+    name: IBM AML synthetic transactions - HI-Small
+    provider: "IBM (synthetic data for AML research; Weber et al. 2019 'Tabformer')"
+    source_url: "https://www.kaggle.com/datasets (verify exact IBM-AML listing)"
+    license: "research distribution - verify exact terms at download"
+    spatial_coverage: n/a
+    temporal_coverage: "synthetic ~200-day window (approx., verify)"
+    resolution: n/a
+    format: CSV
+    expected_size: "~250 MB, ~5.2M transactions (approx., verify)"
+    access_method: "Kaggle (manual / authenticated CLI after terms acceptance)"
+    required_preprocessing: "same as LI-Small; columnar conversion (Parquet) for pipeline efficiency"
+    intended_use: "primary fraud model + graph motif evaluation dataset"
+    known_limitations: "synthetic; class imbalance extreme (planted typologies ~0.1% of transactions)"
+    acquisition_date: null
+    checksums: null
+    status: planned
+
+  - id: paysim
+    name: PaySim synthetic mobile-money transactions
+    provider: "Lopez-Rojas & Axelsson (2016), via Kaggle"
+    source_url: "https://www.kaggle.com/datasets (verify exact PaySim listing)"
+    license: "verify listing terms (research publication 2016)"
+    spatial_coverage: n/a
+    temporal_coverage: "synthetic 30-day step window (approx., verify)"
+    resolution: n/a
+    format: CSV
+    expected_size: "~190 MB, ~6.3M rows (approx., verify)"
+    access_method: "Kaggle (manual after terms check)"
+    required_preprocessing: "schema validation; balance-consistency checks"
+    intended_use: "transaction fraud classification baseline (imbalance-aware)"
+    known_limitations: "no account-level graph structure; single fraud flag; well-known dataset"
+    acquisition_date: null
+    checksums: null
+    status: planned
+
+  - id: ieee-cis-fraud
+    name: IEEE-CIS Fraud Detection (Vesta)
+    provider: "IEEE-CIS / Vesta, via Kaggle competition"
+    source_url: "https://www.kaggle.com/c/ieee-fraud-detection"
+    license: "competition rules - require acceptance; NOT auto-downloaded"
+    spatial_coverage: n/a
+    temporal_coverage: "real transactions, ~6 months (approx., verify)"
+    resolution: n/a
+    format: CSV
+    expected_size: "1-2 GB uncompressed (approx., verify)"
+    access_method: "Kaggle account + competition rules acceptance (manual)"
+    required_preprocessing: "deferred until initial pipeline operational"
+    intended_use: "later-stage realistic fraud feature engineering benchmark"
+    known_limitations: "large; access-gated; anonymous features limit explainability narratives"
+    acquisition_date: null
+    checksums: null
+    status: deferred

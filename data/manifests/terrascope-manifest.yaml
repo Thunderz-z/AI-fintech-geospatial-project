@@ -1,0 +1,121 @@
+# TerraScope dataset manifest
+# Status: PLANNED — nothing acquired yet. Update status, sizes, checksums and
+# acquisition dates at download time. Sizes marked (approx.) must be verified.
+# Storage budget: <= 10 GB total; no single download > 500 MB without approval.
+
+schema_version: "1.0.0"
+updated: "2026-10-31"
+data_root_env: PORTFOLIO_DATA_ROOT
+project_root: "terrascope"  # <data_root>/terrascope/{raw,interim,processed,models,exports}
+
+datasets:
+
+  - id: sentinel-2-l2a-aoi
+    name: Sentinel-2 Level-2A AOI time series
+    provider: Microsoft Planetary Computer (ESA Copernicus)
+    source_url: "https://planetarycomputer.microsoft.com/dataset/sentinel-2-l2a"
+    license: CC-BY-4.0
+    attribution: "Contains modified Copernicus Sentinel data [year]"  # confirm exact string
+    spatial_coverage: "AOI bbox 80.18-80.28E, 12.86-12.99N (Pallikaranai Marsh, approx.)"
+    temporal_coverage: "2019 -> present (seasonal composites)"
+    resolution: "10 m (B02,B03,B04,B08), 20 m (B11,B12,SCL)"
+    format: Cloud Optimized GeoTIFF (COG)
+    expected_size: "1-3 GB total (approx.)"
+    access_method: "pystac-client search + planetary-computer signing + rasterio windowed reads"
+    required_preprocessing: "cloud-cover filter <=20%, SCL masking (exclude 0,1,3,8,9,10,11), seasonal median compositing"
+    intended_use: "spectral indices, land-cover classification, change detection"
+    known_limitations: "SCL shadow/cirrus confusion; L2A backfill varies; processing baselines differ over time"
+    acquisition_date: null
+    checksums: null
+    status: planned
+
+  - id: esa-worldcover-2021-v200-aoi
+    name: ESA WorldCover 2021 v200 AOI subset
+    provider: ESA
+    source_url: "https://esa-worldcover.org/en/data-access"
+    license: CC-BY-4.0
+    spatial_coverage: "AOI subset (single 3x3 deg tile crop)"
+    temporal_coverage: "2021 (single epoch)"
+    resolution: "10 m"
+    format: GeoTIFF
+    expected_size: "10-50 MB (approx.)"
+    access_method: "AOI-bounded subset via WorldCover access API or Planetary Computer item asset"
+    required_preprocessing: "crop to AOI; class remap for comparison tables"
+    intended_use: "reference land-cover labels, classification sanity checks"
+    known_limitations: "single epoch; v200 vs v100 algorithm differences preclude naive year-over-year comparison"
+    acquisition_date: null
+    checksums: null
+    status: planned
+
+  - id: osm-aoi-roads-buildings
+    name: OpenStreetMap roads and buildings (AOI)
+    provider: OpenStreetMap contributors
+    source_url: "https://www.openstreetmap.org / Overpass API"
+    license: ODbL-1.0
+    attribution: "(c) OpenStreetMap contributors"
+    spatial_coverage: "AOI bbox query"
+    temporal_coverage: "as of acquisition date"
+    resolution: "vector"
+    format: GeoJSON / GeoPackage
+    expected_size: "< 50 MB (approx.)"
+    access_method: "Overpass API AOI query (avoid full-country extracts)"
+    required_preprocessing: "tag filtering, projection to analysis CRS"
+    intended_use: "built-up context, proximity features, validation support"
+    known_limitations: "completeness varies; not a land-cover source"
+    acquisition_date: null
+    checksums: null
+    status: planned
+
+  - id: pallikaranai-study-boundary
+    name: Pallikaranai Marsh study boundary
+    provider: "INVESTIGATE: TN Wetlands Authority / TN Forest Dept / Ramsar RSIS (reported Ramsar 2022 - verify)"
+    source_url: "https://rsis.ramsar.org (verification)"
+    license: "as per source (to determine)"
+    spatial_coverage: "Pallikaranai Marsh, Chennai"
+    temporal_coverage: n/a
+    resolution: vector
+    format: GeoJSON
+    expected_size: "< 1 MB"
+    access_method: "TBD - authoritative machine-readable boundary not yet verified"
+    required_preprocessing: "document provenance + digitization method if approximate"
+    intended_use: "study-area definition"
+    known_limitations: "APPROXIMATE boundary in use until an authoritative source is verified; never present as legal wetland boundary"
+    acquisition_date: null
+    checksums: null
+    status: planned  # boundary source investigation is the first acquisition task
+
+  - id: dynamic-world-aoi
+    name: Dynamic World LULC probabilities (AOI)
+    provider: Google (via Google Earth Engine)
+    source_url: "https://developers.google.com/earth-engine/datasets/catalog/GOOGLE_DYNAMICWORLD_V1"
+    license: CC-BY-4.0
+    spatial_coverage: AOI
+    temporal_coverage: "2015-06 -> present"
+    resolution: "10 m"
+    format: "GEE export (GeoTIFF)"
+    expected_size: "10-100 MB (approx.)"
+    access_method: "GEE account + authenticated ee session; export, not bulk download"
+    required_preprocessing: "export AOI time windows; probability bands"
+    intended_use: "optional comparison layer for own classification"
+    known_limitations: "requires GEE auth; optional - not a dependency of the first pipeline"
+    acquisition_date: null
+    checksums: null
+    status: optional-planned
+
+  - id: jrc-gsw-aoi
+    name: JRC Global Surface Water (AOI subset)
+    provider: European Commission JRC
+    source_url: "https://global-surface-water.appspot.com"
+    license: "CC-BY-4.0 (verify); citation Pekel et al. 2016 required"
+    spatial_coverage: AOI tiles
+    temporal_coverage: "1984-2021 (v1.4)"
+    resolution: "30 m"
+    format: GeoTIFF
+    expected_size: "5-20 MB (approx.)"
+    access_method: "direct tile download or GEE - verify access path"
+    required_preprocessing: "AOI crop; band selection (occurrence, change intensity)"
+    intended_use: "historical water context baseline"
+    known_limitations: "30 m resolution; periodic epochs, not continuous"
+    acquisition_date: null
+    checksums: null
+    status: optional-planned
