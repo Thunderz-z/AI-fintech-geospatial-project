@@ -1,7 +1,9 @@
 # FinGuard — Architecture
 
-Status: designed. No pipeline code implemented yet (Phase 6 delivered package skeleton,
-configuration, data-path integration and tests only).
+Status: M1 data foundation implemented (schema validation, IBM AML CSV ingestion +
+Parquet conversion, temporal splitting with leakage assertions, synthetic typology
+fixtures — all tested dataset-free). Features, model, graph motifs, RAG, investigation
+workflow and API remain designed-only.
 
 ## Problem
 

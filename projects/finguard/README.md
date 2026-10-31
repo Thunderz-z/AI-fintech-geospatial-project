@@ -4,8 +4,10 @@ Financial fraud detection and AML intelligence on synthetic transaction data —
 features, imbalance-aware models, transaction-graph AML typologies, evidence-grounded RAG
 explanations and a human-in-the-loop investigation workflow.
 
-**Status: designed, not implemented.** The package skeleton, configuration integration and
-tests exist; the pipeline does not. See:
+**Status: M1 data foundation implemented; model/graph/API layers designed, not implemented.**
+Schema validation, CSV ingestion + Parquet conversion, temporal splitting with leakage
+assertions, and the synthetic typology generator exist and are tested (40 tests, dataset-free).
+LightGBM baseline, graph motif detectors, RAG and API are still planned. See:
 
 - Architecture: [`../../docs/architecture/finguard.md`](../../docs/architecture/finguard.md)
 - Dataset research: [`../../docs/data-sources/finguard-datasets.md`](../../docs/data-sources/finguard-datasets.md)
@@ -15,12 +17,14 @@ tests exist; the pipeline does not. See:
 ## Layout
 
 ```
-src/finguard/      core package (config: validated dataset-dir resolution via relia)
+src/finguard/      core package: config (data-dir resolution via relia), schema (canonical
+                   transaction schema + validation), ingest (IBM AML CSV -> Parquet),
+                   splitting (temporal split + leakage assertions), synthetic (typology fixtures)
 backend/           service layer (planned)
-data/              dataset loaders + validation (planned; data itself lives on the external drive)
-features/          temporal transaction feature engineering (planned)
-models/            LightGBM fraud model, temporal splits, imbalance handling (planned)
-graph/             transaction graph + AML motif detectors (planned)
+data/              further dataset loaders (planned; data itself lives on the external drive)
+features/          temporal transaction feature engineering (planned; leakage gate ready)
+models/            LightGBM fraud model, imbalance handling (planned; splits implemented)
+graph/             transaction graph + AML motif detectors (planned; synthetic ground truth ready)
 rag/               evidence-grounded explanation via RELIA (planned)
 investigation/     alert queue, human review workflow, audit log (planned)
 evidence/          evidence-contract production for alerts (planned)
