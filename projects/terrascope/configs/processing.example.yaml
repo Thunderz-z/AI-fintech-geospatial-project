@@ -19,7 +19,10 @@ sentinel2:
 
 masking:
   method: "scl"
-  scl_exclude: [0, 1, 3, 8, 9, 10, 11]  # nodata, saturated, cloud-med/high, thin cirrus, cloud shadow
+  # ESA SCL: 0 nodata, 1 saturated, 3 cloud-med-prob, 8 cloud-med-prob, 9 cloud-high-prob,
+  # 10 thin cirrus, 11 snow/ice. There is no dedicated shadow class (shadow pixels usually
+  # classify as 2, dark area pixels) - class 2 is retained pending visual QA.
+  scl_exclude: [0, 1, 3, 8, 9, 10, 11]
   min_cloud_free_fraction: 0.80          # below this: abstain from numerical claims
 
 compositing:

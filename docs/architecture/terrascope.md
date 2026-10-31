@@ -1,7 +1,9 @@
 # TerraScope — Architecture
 
-Status: designed. No pipeline code implemented yet (Phase 6 delivered package skeleton,
-configuration, data-path integration and tests only).
+Status: M0 ingestion implemented (STAC search, AOI-bounded windowed COG reads, SCL masking,
+seasonal median compositing — offline-tested on synthetic fixtures; downloads gated behind
+explicit approval, none performed yet). Indices, classification, change detection, API and
+frontend remain planned.
 
 ## Research problem
 
@@ -53,8 +55,11 @@ Key defaults (to be verified against real scenes at ingestion):
 - Datasets live under `PORTFOLIO_DATA_ROOT/terrascope/{raw,interim,processed,models,exports}`.
 - AOI-bounded access only: STAC windowed COG reads; no full-scene or global downloads;
   ≤ 10 GB initial budget (dataset research: [../data-sources/terrascope-datasets.md](../data-sources/terrascope-datasets.md)).
-- Study-area boundary: explicitly labelled **approximate** polygon until an authoritative
-  machine-readable boundary is found; provenance and digitization method are preserved.
+- Study-area boundary: the authoritative machine-readable source is **verified** — Ramsar
+  Sites Information Service, site no. 2481 (Pallikaranai Marsh Reserve Forest, WFS polygon,
+  CC BY 4.0; covers the 1,247.54 ha Reserve Forest, not the full historical marsh). Until that
+  polygon is downloaded (approval-gated), the explicitly labelled **approximate** bbox is the
+  default study boundary; provenance and status travel with the AOI object and into outputs.
 
 ## API + frontend (planned)
 

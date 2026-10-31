@@ -1,11 +1,12 @@
 """TerraScope — geospatial environmental intelligence for the Pallikaranai Marsh.
 
-Status: foundation phase. The ingestion → masking → compositing → indices →
-classification → change-detection pipeline is designed in
-``docs/architecture/terrascope.md``; the dataset strategy is documented in
-``docs/data-sources/terrascope-datasets.md`` and
-``data/manifests/terrascope-manifest.yaml``. No pipeline code is implemented
-yet.
+Status: M0 ingestion implemented (``terrascope.ingestion``: STAC search,
+AOI-bounded windowed COG reads, SCL masking, seasonal median compositing —
+downloads gated behind explicit approval; no satellite data retrieved yet).
+Spectral indices, classification and change detection remain planned; the
+pipeline design lives in ``docs/architecture/terrascope.md`` and the dataset
+strategy in ``docs/data-sources/terrascope-datasets.md`` +
+``data/manifests/terrascope-manifest.yaml``.
 """
 
 __all__ = ["__version__"]
