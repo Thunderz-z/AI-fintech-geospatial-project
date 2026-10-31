@@ -67,10 +67,12 @@ to be confirmed via the first STAC search (do not assume a tile ID).
 - Limitations: 30 m resolution is coarse vs Sentinel-2's 10 m; product epochs are periodic, not
   continuous
 
-## Study-area boundary — investigation result (2026-10-31, web research only; nothing downloaded)
+## Study-area boundary — investigation result (2026-10-31) and ACQUISITION (2026-11-01, approved)
 
-**Result: an authoritative machine-readable boundary source was verified — the Ramsar Sites
-Information Service (RSIS).**
+**Result: the authoritative machine-readable boundary source was verified and then acquired —
+the Ramsar Sites Information Service (RSIS).** The polygon is downloaded and checksummed in the
+manifest (`raw/boundaries/ramsar_in2481.geojson`; MultiPolygon, valid, measured area
+1,246.76 ha vs declared 1,247.54 ha). The original verification findings:
 
 - Site: **Pallikaranai Marsh Reserve Forest, Ramsar Site No. 2481**, designated **8 April 2022**,
   listed area **1,247.54 ha** (shown as 1,247.5 ha on the sheet), centroid 12°55'40"N 80°13'13"E

@@ -1,10 +1,10 @@
 # TerraScope dataset manifest
-# Status: PLANNED — nothing acquired yet. Update status, sizes, checksums and
-# acquisition dates at download time. Sizes marked (approx.) must be verified.
+# Status: first approved acquisitions DONE (2026-11-01): Ramsar boundary +
+# Sentinel-2 L2A winter/early-spring 2024 AOI sample. Sizes and checksums below.
 # Storage budget: <= 10 GB total; no single download > 500 MB without approval.
 
 schema_version: "1.0.0"
-updated: "2026-10-31"
+updated: "2026-11-01"
 data_root_env: PORTFOLIO_DATA_ROOT
 project_root: "terrascope"  # <data_root>/terrascope/{raw,interim,processed,models,exports}
 
@@ -24,10 +24,11 @@ datasets:
     access_method: "pystac-client search + planetary-computer signing + rasterio windowed reads"
     required_preprocessing: "cloud-cover filter <=20%, SCL masking (exclude 0,1,3,8,9,10,11), seasonal median compositing"
     intended_use: "spectral indices, land-cover classification, change detection"
-    known_limitations: "SCL shadow/cirrus confusion; L2A backfill varies; processing baselines differ over time"
-    acquisition_date: null
-    checksums: null
-    status: planned
+    known_limitations: "SCL cloud-probability confusion (no dedicated shadow class); L2A backfill varies; processing baselines differ over time"
+    acquisition_date: "2026-11-01"
+    checksums: "raw/sentinel-2-l2a/acquisition_log.jsonl (sha256 per file, 77 files)"
+    acquired_sample: "11 scenes 2024-01-15..2024-03-30, tile T44PMV, eo:cloud_cover<20; 112.0 MB; windowed to composite-grid bounds (approx bbox, EPSG:32644)"
+    status: acquired-sample  # first approved retrieval; seasonal backfill follows per-step-4 QA
 
   - id: esa-worldcover-2021-v200-aoi
     name: ESA WorldCover 2021 v200 AOI subset
@@ -80,10 +81,12 @@ datasets:
     access_method: "WFS GetFeature (verified via GetCapabilities; Fees NONE, AccessConstraints NONE): https://rsis.ramsar.org/geoserver/wfs?request=GetFeature&service=wfs&version=1.0.0&typename=ramsar_sdi:features_param_idrvis&viewparams=idrvis:42511262&outputformat=SHAPE-ZIP (outputformat=JSON for GeoJSON)"
     required_preprocessing: "verify geometry type (polygon expected) + vertex quality; reproject to EPSG:4326/32644 as needed; document acquisition in this manifest with checksum"
     intended_use: "authoritative study-area definition for the Ramsar-listed Reserve Forest; primary measurement boundary"
-    known_limitations: "Covers the Ramsar-listed Reserve Forest (1,247.54 ha) ONLY - not the full historical marsh ecosystem (~80 sq km historical extent). Broader-marsh context keeps the APPROXIMATE polygon (never present as legal boundary; limitation recorded in EvidenceContract). Geometry type to verify at acquisition."
-    acquisition_date: null
-    checksums: null
-    status: planned  # source VERIFIED 2026-10-31 (web research); download gated behind approval
+    known_limitations: "Covers the Ramsar-listed Reserve Forest (declared 1,247.54 ha) ONLY - not the full historical marsh ecosystem (~80 sq km historical extent). Broader-marsh context keeps the APPROXIMATE polygon (never present as legal boundary; limitation recorded in EvidenceContract)."
+    verification: "MultiPolygon, single polygon, valid; measured area 1,246.76 ha (EPSG:32644) vs declared 1,247.54 ha (-0.06%); bbox 80.2082-80.24309E, 12.8767-12.9683N"
+    acquisition_date: "2026-11-01"
+    checksums: "sha256 a797ed7e91057a5d2acefaceae9648c257965d38e15aa4fd8cd88a483967c05d (13,913 bytes)"
+    stored_at: "raw/boundaries/ramsar_in2481.geojson (under PORTFOLIO_DATA_ROOT/terrascope)"
+    status: acquired
 
   - id: dynamic-world-aoi
     name: Dynamic World LULC probabilities (AOI)
