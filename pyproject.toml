@@ -1,0 +1,43 @@
+[project]
+name = "ai-fintech-geospatial-portfolio"
+version = "0.1.0"
+description = "Monorepo for RELIA (shared AI reliability infrastructure), TerraScope (geospatial environmental intelligence) and FinGuard (fraud/AML intelligence)."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "relia",
+    "terrascope",
+    "finguard",
+]
+
+[tool.uv.sources]
+relia = { workspace = true }
+terrascope = { workspace = true }
+finguard = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "ruff>=0.9",
+    "mypy>=1.14",
+]
+
+[tool.uv.workspace]
+members = ["packages/relia", "projects/terrascope", "projects/finguard"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["packages/relia/src", "projects/terrascope/src", "projects/finguard/src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "W"]
+
+[tool.pytest.ini_options]
+testpaths = [
+    "packages/relia/tests",
+    "projects/terrascope/tests",
+    "projects/finguard/tests",
+]
+addopts = "-ra"

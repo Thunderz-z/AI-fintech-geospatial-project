@@ -1,0 +1,54 @@
+# FinGuard reproducible experiment configuration (TEMPLATE).
+# Not executed anywhere yet: this documents the target experiment parameters.
+# A real run will record the resolved values of every field into the results
+# and evidence contracts. See docs/architecture/finguard.md.
+
+dataset: null  # e.g. "ibm-aml-li-small"; see data/manifests/finguard-manifest.yaml
+data_type: "synthetic"  # results on synthetic data are always labelled synthetic
+
+split:
+  method: "temporal"          # random splits are leakage (ADR-0006)
+  train_fraction: 0.6
+  validation_fraction: 0.2
+  test_fraction: 0.2
+  split_key: "transaction_timestamp"
+
+features:
+  window: ["1h", "24h", "7d"]  # rolling behavioural windows
+  exclude_post_event: true     # leakage guard, asserted by tests
+
+model:
+  type: "lightgbm"
+  objective: "binary"
+  class_imbalance: "scale-positive-weights"  # evaluated properly, not hidden
+
+metrics:
+  primary: "pr_auc"
+  report:
+    - precision
+    - recall
+    - f1
+    - pr_auc
+    - roc_auc
+    - false_positive_rate
+  operating_point: "alert-budget-constrained"  # performance at realistic alert thresholds
+
+graph:
+  motifs:
+    - fan-in
+    - fan-out
+    - cycle
+    - structuring
+    - scatter-gather
+    - rapid-movement
+  motif_validation: "synthetic fixtures with planted typologies"
+
+explanation:
+  rag: true
+  cite: ["transaction evidence", "graph motif", "policy document excerpt"]
+  abstain_when_insufficient_evidence: true
+
+governance:
+  human_approval_required_for: ["escalation", "case-closure", "regulatory-report"]
+  autonomous_financial_actions: false
+  audit_log: true

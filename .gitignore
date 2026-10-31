@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Geospatial data
+*.tif
+*.tiff
+*.jp2
+*.vrt
+*.gpkg
+*.shp
+*.shx
+*.dbf
+*.prj
+
+# Datasets and experiments
+data/raw/
+data/interim/
+data/processed/
+datasets/
+experiments/**/outputs/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Frontend
+node_modules/
+dist/
+.next/
+
+# Docker and temporary files
+*.log
+tmp/
+temp/
+
+# IDE
+.vscode/
+.idea/
+
+# Codebase memory local artifacts
+.codebase-memory/
+
+# ZCode session-local artifacts
+.zcode/

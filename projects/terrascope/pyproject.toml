@@ -1,0 +1,16 @@
+[project]
+name = "terrascope"
+version = "0.1.0"
+description = "Geospatial environmental intelligence for the Pallikaranai Marsh, Chennai: satellite ingestion, land-cover analytics and evidence-grounded reporting."
+requires-python = ">=3.13"
+dependencies = ["relia"]
+
+[tool.uv.sources]
+relia = { workspace = true }
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/terrascope"]

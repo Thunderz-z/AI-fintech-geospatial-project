@@ -1,0 +1,46 @@
+# TerraScope reproducible processing configuration (TEMPLATE).
+# Not executed anywhere yet: this documents the target pipeline parameters.
+# A real run will record the resolved values of every field into the analysis
+# outputs and evidence contracts. See docs/architecture/terrascope.md.
+
+study_area:
+  name: "Pallikaranai Marsh (approximate study boundary)"
+  bbox_epsg4326: [80.18, 12.86, 80.28, 12.99]
+  crs_analysis: "EPSG:32644"  # UTM 44N (to verify against final AOI)
+  boundary_status: "approximate - authoritative source investigation pending"
+
+sentinel2:
+  collection: "sentinel-2-l2a"
+  provider: "microsoft-planetary-computer"
+  cloud_cover_max_pct: 20
+  bands_10m: ["B02", "B03", "B04", "B08"]
+  bands_20m: ["B11", "B12", "SCL"]
+  date_range: ["2019-01-01", null]  # null = present
+
+masking:
+  method: "scl"
+  scl_exclude: [0, 1, 3, 8, 9, 10, 11]  # nodata, saturated, cloud-med/high, thin cirrus, cloud shadow
+  min_cloud_free_fraction: 0.80          # below this: abstain from numerical claims
+
+compositing:
+  strategy: "seasonal-median"
+  seasons: ["winter", "summer", "monsoon-post"]
+
+indices:
+  - ndvi
+  - ndwi
+  - mndwi
+  - ndbi
+
+classification:
+  models: ["random-forest", "lightgbm"]   # classical first; deep learning only if justified
+  validation: "spatial-block-cv"          # random pixel splits are leakage (ADR-0006)
+  block_size_m: 2000                      # starting point; tuned via variogram check
+
+change_detection:
+  method: "post-classification-comparison"  # alternatives evaluated at implementation
+  min_valid_obs_per_epoch: 3
+
+evidence:
+  contract_schema_version: "1.0.0"
+  abstain_when: ["insufficient cloud-free coverage", "boundary uncertainty unresolved"]
