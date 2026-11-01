@@ -4,16 +4,17 @@ Financial fraud detection and AML intelligence on synthetic transaction data —
 features, imbalance-aware models, transaction-graph AML typologies, evidence-grounded RAG
 explanations and a human-in-the-loop investigation workflow.
 
-**Status: M1 + M1.5 + investigation workflow implemented on real acquired data.**
-M1: schema/ingest/splitting/synthetic fixtures, leakage-safe features, LightGBM baseline
-(HI-Small test PR-AUC 0.0159 = 15.6x base rate; 92% precision at a 0.1% alert budget),
-fan-in/structuring detectors. M1.5: fan-in alert ranking (precision on detectable planted
-attempts 0.667 at the 0.1% budget vs 0.000 unranked), EvidenceContract bundles for alerts
-(with thin-evidence abstention), fan-out + cycle detectors (fan-out mirrors fan-in's
+FinGuard runs end-to-end on real acquired data. The data foundation:
+schema/ingest/splitting/synthetic fixtures, leakage-safe features, LightGBM baseline
+(HI-Small test PR-AUC 0.0159 = 15.6× base rate; 92% precision at a 0.1% alert budget),
+fan-in/structuring detectors. On top of it: fan-in alert ranking (precision on detectable
+planted attempts 0.667 at the 0.1% budget vs 0.000 unranked), EvidenceContract bundles for
+alerts (with thin-evidence abstention), fan-out + cycle detectors (fan-out mirrors fan-in's
 recall/precision profile; cycle is the inverse: precision 0.166-0.385, detectable recall
-0.66 at degree_cap=100). M3: **investigation queue with an immutable audit log** (named
-reviewer required, no autonomous decision surface), scatter-gather + rapid-movement
-detectors, and a FastAPI investigation surface + client. Planned: ranking for fan-out/cycle
+0.66 at degree_cap=100). The M3 layer: an **investigation queue with an immutable audit
+log** (named reviewer required, no autonomous decision surface), scatter-gather +
+rapid-movement detectors, and a FastAPI investigation surface + client. Next on the roadmap:
+ranking for fan-out/cycle
 alerts, RAG explanations via RELIA (awaits provider keys). Metrics JSONs
 live in `<data_root>/finguard/processed/`; all data is SYNTHETIC. See:
 

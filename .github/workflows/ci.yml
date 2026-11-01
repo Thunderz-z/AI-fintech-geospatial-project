@@ -9,15 +9,15 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v10
         with:
           python-version: "3.13"
 
       - name: Install dependencies
-        run: uv sync --locked
+        run: uv sync --frozen
 
       - name: Lint
         run: uv run ruff check .
@@ -29,7 +29,7 @@ jobs:
     # The owner develops without Docker Desktop; CI verifies the images build.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build terrascope image
         run: docker build -f infrastructure/docker/terrascope.Dockerfile -t terrascope:ci .
       - name: Build finguard image

@@ -4,16 +4,17 @@ Geospatial environmental intelligence for the **Pallikaranai Marsh, Chennai** �
 ingestion, spectral-index analytics, land-cover classification, change detection and
 evidence-grounded environmental reporting.
 
-**Status: end-to-end on real data.** Full Sentinel-2 L2A record 2019-04 → 2026-10 acquired
-(219 scenes, 2.34 GB of the 10 GB budget) plus the **authoritative Ramsar IN2481 boundary**
-(1,246.76 ha measured vs 1,247.54 ha declared). Implemented and run: gated ingestion, SCL
-masking, seasonal composites, spectral indices, MNDWI water-extent series **v1** (threshold
-calibrated against WorldCover permanent water, mean κ = 0.45; QA points 7/12), random-forest
-classification under spatial block CV (58.97% ± 3.22% vs weak labels), bootstrap-CI seasonality
-(+9.1 pp NE-monsoon vs dry, CI [4.0, 14.9]), **epoch change detection** (winter 2019-20 vs
-2023-24: water 25.05% → 24.74%, with per-pixel uncertainty maps), and a **read-only FastAPI
-surface + MapLibre client**. Remaining: ground-truth QA points, multi-class change detection,
-RELIA-written narrative reports (awaits API keys). See:
+TerraScope runs end-to-end on real data. The full Sentinel-2 L2A record 2019-04 → 2026-10 is
+acquired (219 scenes, 2.34 GB of the 10 GB budget) together with the **authoritative Ramsar
+IN2481 boundary** (1,246.76 ha measured vs 1,247.54 ha declared). Implemented and running:
+gated ingestion, SCL masking, seasonal composites, spectral indices, the MNDWI water-extent
+series **v1** (threshold calibrated against WorldCover permanent water, mean κ = 0.45; QA
+points 7/12), random-forest classification under spatial block CV (58.97% ± 3.22% vs weak
+labels), bootstrap-CI seasonality (+9.1 pp NE-monsoon vs dry, CI [4.0, 14.9]), **epoch change
+detection** (winter 2019-20 vs 2023-24: water 25.05% → 24.74%, with per-pixel uncertainty
+maps), and a **read-only FastAPI surface + MapLibre client**. On the roadmap next:
+ground-truth QA points, multi-class change detection, RELIA-written narrative reports (awaits
+API keys). See:
 
 - Ingestion module: [`ingestion/README.md`](ingestion/README.md) (code: `src/terrascope/ingestion/`)
 - Architecture: [`../../docs/architecture/terrascope.md`](../../docs/architecture/terrascope.md)
