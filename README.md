@@ -16,6 +16,24 @@ carries its evidence, methodology, uncertainty and limitations, or the system ex
 **335 tests green** across the workspace; ruff and mypy clean. No fabricated metrics anywhere —
 each number in the READMEs traces to a reproducible command and a JSON artefact on the data root.
 
+## Screenshots
+
+**TerraScope** — authoritative Ramsar IN2481 boundary on the live map, with the calibrated
+water series, epoch change detection and block-CV classification cards:
+
+![TerraScope overview](docs/screenshots/terrascope-overview.png)
+
+**FinGuard** — the ranked investigation queue and an alert's evidence bundle (every decision
+is audited against a named reviewer):
+
+![FinGuard queue](docs/screenshots/finguard-queue.png)
+
+![FinGuard alert evidence](docs/screenshots/finguard-alert-evidence.png)
+
+Run them yourself: `uv run uvicorn terrascope.api.app:app --port 8801` (map UI at `/`) and
+`uv run uvicorn finguard.api.app:app --port 8802` (investigation UI at `/`); seed the demo
+queue with `uv run --project projects/finguard python projects/finguard/scripts/seed_investigation_queue.py --from-evidence --detect 10`.
+
 ## Headline results (all reproducible; artefacts on the data root)
 
 - **TerraScope water seasonality**: NE-monsoon water +9.1 pp over dry season, bootstrap 95% CI

@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <link rel="icon" href="data:," />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>TerraScope — Pallikaranai Marsh</title>
+  <link rel="icon" href="data:," />
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
   <style>
@@ -15,12 +15,9 @@
     header h1 { margin: 0; font-size: 17px; } header p { margin: 2px 0 0; color: #5a6b78; font-size: 12px; }
     main { display: grid; grid-template-columns: 420px 1fr; gap: 14px; padding: 14px 20px; height: calc(100vh - 66px); }
     section { background: white; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-y: auto; }
-    #map { min-height: 300px; border-radius: 6px; }
+    #map { min-height: 340px; border-radius: 6px; }
     h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); margin: 14px 0 6px; }
     h2:first-child { margin-top: 0; }
-    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-    td, th { border-bottom: 1px solid var(--line); padding: 4px 6px; text-align: left; }
-    th { color: #5a6b78; font-weight: 600; }
     .kv { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
     .kv b { font-variant-numeric: tabular-nums; }
     .artefact { font-family: ui-monospace, monospace; font-size: 11px; color: #5a6b78; word-break: break-all; }
@@ -28,12 +25,15 @@
     .muted { color: #5a6b78; }
     details summary { cursor: pointer; color: var(--accent); font-size: 12.5px; margin: 6px 0; }
     pre { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; font-size: 11px; overflow-x: auto; }
+    .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; margin-top: 6px; }
+    .legend span { display: inline-flex; align-items: center; gap: 4px; }
+    .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
   </style>
 </head>
 <body>
 <header>
   <h1>TerraScope — Pallikaranai Marsh environmental intelligence</h1>
-  <p>Read-only surface over reproducible analysis artefacts. Every number links to its evidence. Synthetic-free: real Sentinel-2 record 2019–2026.</p>
+  <p>Read-only surface over reproducible analysis artefacts. Every number links to its evidence. Real Sentinel-2 record 2019–2026 (219 scenes).</p>
 </header>
 <main>
   <section id="reports">
@@ -46,18 +46,43 @@
   </section>
   <section>
     <div id="map"></div>
-    <h2>Evidence contracts</h2>
-    <details id="evidence-details"><summary>open evidence bundle</summary><pre id="evidence">—</pre></details>
+    <div class="legend">
+      <span><i class="swatch" style="background:#0e7490; opacity:.35"></i> Ramsar IN2481 boundary (authoritative)</span>
+      <span class="muted">basemap © OpenStreetMap contributors</span>
+    </div>
   </section>
 </main>
 <script>
-  // Ramsar IN2481 boundary bbox (served by the API; falls back to the approx AOI).
+  // Carto light basemap (free with attribution) + the authoritative boundary.
   const map = new maplibregl.Map({
     container: 'map',
-    style: { version: 8, sources: {}, layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#dfe8ec' } }] },
-    center: [80.225, 12.92], zoom: 11.3,
+    style: {
+      version: 8,
+      sources: {
+        basemap: {
+          type: 'raster',
+          tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+          tileSize: 256,
+          attribution: '© OpenStreetMap contributors',
+        },
+      },
+      layers: [{ id: 'basemap', type: 'raster', source: 'basemap' }],
+    },
+    center: [80.226, 12.922], zoom: 11.6,
   });
   map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+  function addBoundary(boundary) {
+    map.addSource('ramsar', { type: 'geojson', data: boundary });
+    map.addLayer({
+      id: 'ramsar-fill', type: 'fill', source: 'ramsar',
+      paint: { 'fill-color': '#0e7490', 'fill-opacity': 0.3 },
+    });
+    map.addLayer({
+      id: 'ramsar-line', type: 'line', source: 'ramsar',
+      paint: { 'line-color': '#0e7490', 'line-width': 2 },
+    });
+  }
 
   async function fetchJson(url) {
     const res = await fetch(url);
@@ -79,6 +104,15 @@
     return el;
   }
 
+  function evidenceBlock(payload) {
+    const btn = document.createElement('details');
+    btn.innerHTML = '<summary>evidence contract</summary>';
+    const pre = document.createElement('pre');
+    pre.textContent = JSON.stringify(payload, null, 2).slice(0, 4000);
+    btn.append(pre);
+    return btn;
+  }
+
   async function loadSeasonality() {
     const box = document.getElementById('seasonality');
     try {
@@ -87,19 +121,18 @@
         fetchJson('/analysis/water-series/evidence'),
       ]);
       box.replaceChildren(artefactLink(series));
-      const claim = evidence.claim_text || '';
       const p = document.createElement('p');
-      p.textContent = claim;
+      p.textContent = evidence.claim_text || '';
       box.append(p);
-      // Season summary rows (computed server-side at analysis time).
-      const rows = [['usable dates', series.n_usable_dates ?? '—'], ['abstained', series.n_abstained ?? '—']];
-      for (const [k, v] of rows) box.append(kv(k, String(v)));
-      const btn = document.createElement('details');
-      btn.innerHTML = '<summary>evidence contract</summary>';
-      const pre = document.createElement('pre');
-      pre.textContent = JSON.stringify(evidence, null, 2).slice(0, 4000);
-      btn.append(pre);
-      box.append(btn);
+      const observations = series.observations || [];
+      const usable = observations.filter(o => !o.abstained);
+      const fractions = usable.map(o => o.water_fraction_ramsar);
+      box.append(kv('usable dates', `${usable.length} of ${observations.length}`));
+      box.append(kv('abstained (coverage gate)', String(observations.length - usable.length)));
+      if (fractions.length) {
+        box.append(kv('Ramsar water range', `${(100 * Math.min(...fractions)).toFixed(1)}% – ${(100 * Math.max(...fractions)).toFixed(1)}%`));
+      }
+      box.append(evidenceBlock(evidence));
     } catch (err) {
       box.className = 'err';
       box.textContent = String(err);
@@ -148,17 +181,13 @@
   async function loadBoundary() {
     try {
       const boundary = await fetchJson('/analysis/boundary');
-      map.on('load', () => {
-        map.addSource('ramsar', { type: 'geojson', data: boundary });
-        map.addLayer({
-          id: 'ramsar-fill', type: 'fill', source: 'ramsar',
-          paint: { 'fill-color': '#0e7490', 'fill-opacity': 0.25 },
-        });
-        map.addLayer({
-          id: 'ramsar-line', type: 'line', source: 'ramsar',
-          paint: { 'line-color': '#0e7490', 'line-width': 2 },
-        });
-      });
+      // The fetch may resolve after the map's 'load' event has already fired;
+      // handle both orders or the layer is silently never added.
+      if (map.isStyleLoaded()) {
+        addBoundary(boundary);
+      } else {
+        map.on('load', () => addBoundary(boundary));
+      }
     } catch (err) {
       console.warn('boundary unavailable:', err);
     }

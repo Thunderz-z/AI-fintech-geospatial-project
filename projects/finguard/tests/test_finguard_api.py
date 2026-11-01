@@ -41,7 +41,7 @@ def seeded(queue_paths: QueuePaths, tmp_path: Path) -> tuple[QueuePaths, Path]:
     evidence_root = tmp_path / "finguard-root"
     processed = evidence_root / "processed"
     processed.mkdir(parents=True)
-    (processed / "alert-evidence.jsonl").write_text(
+    (processed / "HI-Small_alert-evidence.jsonl").write_text(
         json.dumps(
             {
                 "schema_version": "1.0.0",

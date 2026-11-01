@@ -123,17 +123,18 @@ def create_app(
         if not record.evidence_claim_id:
             raise HTTPException(status_code=404, detail="Alert carries no evidence contract")
         root = _resolve_root(data_root)
-        for line in (root / "processed" / "alert-evidence.jsonl").read_text(
-            encoding="utf-8"
-        ).splitlines():
-            if not line.strip():
-                continue
-            contract = json.loads(line)
-            if contract.get("claim_id") == record.evidence_claim_id:
-                return contract
+        # Evidence bundles are per dataset (HI-Small_alert-evidence.jsonl, ...).
+        for bundle in sorted((root / "processed").glob("*_alert-evidence.jsonl")):
+            for line in bundle.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                contract = json.loads(line)
+                if contract.get("claim_id") == record.evidence_claim_id:
+                    contract["_bundle"] = bundle.name
+                    return contract
         raise HTTPException(
             status_code=404,
-            detail=f"Evidence contract {record.evidence_claim_id!r} not in the bundle",
+            detail=f"Evidence contract {record.evidence_claim_id!r} not in any bundle",
         )
 
     @app.post("/alerts/{alert_id}/decision")
