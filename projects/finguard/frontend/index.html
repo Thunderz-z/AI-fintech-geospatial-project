@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FinGuard — Investigation Queue</title>
+  <style>
+    :root { --ink: #17202b; --line: #dde3e9; --accent: #7c2d12; --bg: #f7f6f4; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 14px/1.5 system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+    header { padding: 12px 20px; background: white; border-bottom: 1px solid var(--line); }
+    header h1 { margin: 0; font-size: 17px; } header p { margin: 2px 0 0; color: #66707c; font-size: 12px; }
+    main { display: grid; grid-template-columns: 1fr 460px; gap: 14px; padding: 14px 20px; height: calc(100vh - 66px); }
+    section { background: white; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-y: auto; }
+    h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); margin: 0 0 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; }
+    th { color: #66707c; font-weight: 600; font-size: 11.5px; text-transform: uppercase; }
+    tr { cursor: pointer; } tr:hover { background: #fbf7f4; }
+    tr.selected { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .badge { padding: 1px 8px; border-radius: 999px; font-size: 11px; border: 1px solid var(--line); }
+    .open { background: #fff7ed; color: #9a3412; border-color: #fdba74; }
+    .dismissed, .closed { background: #f1f5f9; color: #475569; }
+    .escalated { background: #fef2f2; color: #b91c1c; border-color: #fca5a5; }
+    .note { color: #66707c; font-size: 12px; margin: 8px 0; }
+    .warn { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; padding: 8px 10px; font-size: 12.5px; margin-bottom: 10px; }
+    label { display: block; font-size: 12px; color: #66707c; margin: 8px 0 2px; }
+    input, textarea, select, button { font: inherit; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%; }
+    button { background: var(--accent); color: white; border: none; cursor: pointer; margin-top: 10px; }
+    button.ghost { background: white; color: var(--ink); border: 1px solid var(--line); }
+    pre { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; font-size: 11px; overflow-x: auto; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .actions button { margin-top: 6px; }
+    .dismiss { background: #475569; } .close { background: #1d4ed8; }
+    .err { color: #b42318; font-size: 12.5px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>FinGuard — alert investigation</h1>
+  <p>Synthetic-data detections (IBM AML planted typologies). A suspicious pattern is never a finding of money laundering. Every decision requires a named reviewer and is audited.</p>
+</header>
+<main>
+  <section id="queue-section">
+    <h2>Alert queue</h2>
+    <div>
+      <label>Filter</label>
+      <select id="filter" onchange="loadAlerts()">
+        <option value="">all</option>
+        <option value="open" selected>open</option>
+        <option value="escalated">escalated</option>
+        <option value="dismissed">dismissed</option>
+        <option value="closed">closed</option>
+      </select>
+    </div>
+    <table>
+      <thead><tr><th>typology</th><th>account</th><th>score</th><th>rank</th><th>status</th></tr></thead>
+      <tbody id="alerts"><tr><td colspan="5" class="note">loading…</td></tr></tbody>
+    </table>
+  </section>
+  <section id="detail-section">
+    <h2>Alert detail</h2>
+    <div id="detail"><p class="note">Select an alert.</p></div>
+    <div id="decision-box" style="display:none">
+      <div class="warn">Your decision is final and appended to the immutable audit log with your name.</div>
+      <label>Your name (reviewer identity)</label>
+      <input id="analyst" placeholder="e.g. analyst-7" />
+      <label>Notes (required for escalate)</label>
+      <textarea id="notes" rows="3" placeholder="why this disposition…"></textarea>
+      <div class="actions">
+        <button class="dismiss" onclick="decide('dismiss')">Dismiss</button>
+        <button onclick="decide('escalate')">Escalate</button>
+        <button class="close" onclick="decide('close')">Close case</button>
+      </div>
+      <p class="err" id="decision-err"></p>
+    </div>
+    <h2>Evidence bundle</h2>
+    <pre id="evidence">select an alert with an evidence contract</pre>
+  </section>
+</main>
+<script>
+  let currentId = null;
+
+  async function fetchJson(url, options) {
+    const res = await fetch(url, options);
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.detail ? JSON.stringify(body.detail) : res.status);
+    return body;
+  }
+
+  async function loadAlerts() {
+    const filter = document.getElementById('filter').value;
+    const tbody = document.getElementById('alerts');
+    try {
+      const payload = await fetchJson('/alerts' + (filter ? `?status=${filter}` : ''));
+      tbody.innerHTML = '';
+      if (!payload.count) {
+        tbody.innerHTML = '<tr><td colspan="5" class="note">queue is empty for this filter</td></tr>';
+        return;
+      }
+      for (const alert of payload.alerts) {
+        const tr = document.createElement('tr');
+        tr.dataset.id = alert.alert_id;
+        if (alert.alert_id === currentId) tr.className = 'selected';
+        tr.innerHTML = `
+          <td>${alert.typology}</td>
+          <td><code>${alert.account}</code></td>
+          <td>${JSON.stringify(alert.score).slice(0, 60)}…</td>
+          <td>${alert.rank == null ? '—' : Number(alert.rank).toFixed(3)}</td>
+          <td><span class="badge ${alert.status}">${alert.status}</span></td>`;
+        tr.onclick = () => select(alert);
+        tbody.append(tr);
+      }
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="5" class="err">${String(err)}</td></tr>`;
+    }
+  }
+
+  async function select(alert) {
+    currentId = alert.alert_id;
+    document.querySelectorAll('tr.selected').forEach(el => el.classList.remove('selected'));
+    document.querySelector(`tr[data-id="${currentId}"]`)?.classList.add('selected');
+    const detail = document.getElementById('detail');
+    const rows = Object.entries(alert)
+      .filter(([k]) => !['score'].includes(k))
+      .map(([k, v]) => `<div class="kv"><span>${k}</span><b>${String(v).slice(0, 60)}</b></div>`)
+      .join('');
+    detail.innerHTML = rows + `<div class="kv"><span>score</span><b>${JSON.stringify(alert.score)}</b></div>`;
+    document.getElementById('decision-box').style.display = alert.status === 'open' ? 'block' : 'none';
+    const evidence = document.getElementById('evidence');
+    if (alert.evidence_claim_id) {
+      try {
+        evidence.textContent = JSON.stringify(await fetchJson(`/alerts/${alert.alert_id}/evidence`), null, 2);
+      } catch (err) {
+        evidence.textContent = 'evidence unavailable: ' + err.message;
+      }
+    } else {
+      evidence.textContent = 'no evidence contract attached to this alert';
+    }
+  }
+
+  async function decide(action) {
+    const err = document.getElementById('decision-err');
+    err.textContent = '';
+    try {
+      await fetchJson(`/alerts/${currentId}/decision`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          decided_by: document.getElementById('analyst').value,
+          notes: document.getElementById('notes').value,
+        }),
+      });
+      await loadAlerts();
+      document.getElementById('decision-box').style.display = 'none';
+    } catch (e) {
+      err.textContent = 'Rejected: ' + e.message;
+    }
+  }
+
+  loadAlerts();
+</script>
+</body>
+</html>

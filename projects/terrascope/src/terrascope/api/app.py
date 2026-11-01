@@ -43,8 +43,8 @@ def _resolve_root(data_root: Path | None) -> Path:
         ) from exc
 
 
-def create_app(data_root: Path | None = None) -> FastAPI:
-    """Build the API; ``data_root`` injection keeps tests offline."""
+def create_app(data_root: Path | None = None, static_dir: Path | None = None) -> FastAPI:
+    """Build the API; ``data_root``/``static_dir`` injection keeps tests offline."""
 
     def root_dep() -> Path:
         return _resolve_root(data_root)
@@ -118,6 +118,19 @@ def create_app(data_root: Path | None = None) -> FastAPI:
         payload = _read_json(root / "processed" / "classification" / name)
         payload["_artefact"] = f"processed/classification/{name}"
         return payload
+
+    @app.get("/analysis/boundary")
+    def boundary(root: Path = Depends(root_dep)) -> Any:
+        """The authoritative Ramsar IN2481 GeoJSON (raw pass-through)."""
+        path = root / "raw" / "boundaries" / "ramsar_in2481.geojson"
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="Boundary not found on the data root")
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    if static_dir is not None and Path(static_dir).is_dir():
+        from fastapi.staticfiles import StaticFiles
+
+        app.mount("/", StaticFiles(directory=Path(static_dir), html=True), name="frontend")
 
     return app
 

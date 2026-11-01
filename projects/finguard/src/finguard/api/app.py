@@ -48,6 +48,7 @@ def create_app(
     queue_paths: QueuePaths | None = None,
     *,
     data_root: Path | None = None,
+    static_dir: Path | None = None,
 ) -> FastAPI:
     """Build the API; injections keep tests offline and hermetic."""
 
@@ -146,6 +147,11 @@ def create_app(
     def audit(queue: InvestigationQueue = Depends(queue_dep)) -> dict[str, Any]:
         events = queue.audit_events()
         return {"count": len(events), "events": events}
+
+    if static_dir is not None and Path(static_dir).is_dir():
+        from fastapi.staticfiles import StaticFiles
+
+        app.mount("/", StaticFiles(directory=Path(static_dir), html=True), name="frontend")
 
     return app
 
