@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import string
 import tomllib
+from collections.abc import Mapping
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -85,8 +86,12 @@ class PromptTemplate(BaseModel):
         """Placeholder names detected in the template, in first-appearance order."""
         return tuple(string.Template(self.template).get_identifiers())
 
-    def render(self, variables: dict[str, str]) -> str:
-        """Strict substitution; missing variables raise :class:`PromptRenderError`."""
+    def render(self, variables: Mapping[str, object]) -> str:
+        """Strict substitution; missing variables raise :class:`PromptRenderError`.
+
+        Values need not be strings — ``string.Template`` converts via
+        ``str()``, so context values like ints pass through cleanly.
+        """
         try:
             return string.Template(self.template).substitute(**variables)
         except KeyError as exc:
@@ -165,7 +170,11 @@ class PromptRegistry:
         return template
 
     def render(
-        self, prompt_id: str, variables: dict[str, str], *, version: str | None = None
+        self,
+        prompt_id: str,
+        variables: Mapping[str, object],
+        *,
+        version: str | None = None,
     ) -> str:
         return self.get(prompt_id, version).render(variables)
 
