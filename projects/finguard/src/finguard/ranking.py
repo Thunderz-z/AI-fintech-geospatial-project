@@ -198,7 +198,12 @@ def train_alert_ranker(
     """
     pos = int(train_features[label_col].sum())
     neg = len(train_features) - pos
-    spw = min(neg / max(1, pos), scale_pos_weight_cap)
+    if pos == 0 or neg == 0:
+        # Degenerate fixture case (e.g. every alert is positive); LightGBM
+        # rejects scale_pos_weight <= 0, so fall back to the neutral weight.
+        spw = 1.0
+    else:
+        spw = min(neg / pos, scale_pos_weight_cap)
     params = {
         "objective": "binary",
         "n_estimators": n_estimators,

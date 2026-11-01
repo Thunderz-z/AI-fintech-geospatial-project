@@ -1,20 +1,23 @@
-"""Evaluate fan-in / structuring detectors against real planted ground truth.
+"""Evaluate motif detectors against real planted ground truth (v2, M1.5/F3).
 
 Usage:
 
     uv run python projects/finguard/scripts/evaluate_motifs.py HI-Small
 
-Runs :func:`finguard.graph.detect_fan_in` and :func:`detect_structuring` on
+Runs the fan-in / fan-out / cycle / structuring detectors on
 ``<root>/finguard/processed/<id>_trans.parquet`` and scores them against the
 AMLSim pattern attempts in ``<root>/finguard/raw/<id>_Patterns.txt``:
 
 * alert precision — fraction of detector alerts whose transaction keys
   overlap a planted attempt of the SAME typology
 * attempt recall — fraction of planted attempts whose keys are covered
-  (>= 50% overlap) by some detector alert
+  (>= 50% overlap) by some detector alert, overall and against *detectable*
+  attempts only (those the detector configuration could in principle catch)
 
+v2 adds fan-out and cycle (M1.5/F3) and writes
+``<id>_motif-evaluation-v2.json`` (the v0 file is kept for the record).
 A detected motif is a suspicious pattern, not a laundering finding; the
-ground truth here labels *planted patterns* in SYNTHETIC data.
+ground truth labels *planted patterns* in SYNTHETIC data.
 """
 
 from __future__ import annotations
@@ -22,11 +25,12 @@ from __future__ import annotations
 import argparse
 import json
 import time
+from collections.abc import Callable
 
 import pandas as pd
 
 from finguard.config import data_subdir
-from finguard.graph import detect_fan_in, detect_structuring
+from finguard.graph import detect_cycle, detect_fan_in, detect_fan_out, detect_structuring
 from finguard.patterns import parse_patterns_file
 
 
@@ -39,15 +43,15 @@ def _evaluate(
     planted: list[set],
     tx_lookup: dict[int, tuple[str, str, object]],
     *,
-    min_senders: int = 0,
+    detectable_filter: Callable[[set], bool] | None = None,
     min_cover: float = 0.5,
 ) -> dict:
     """Score alerts against planted attempts.
 
-    Recall is reported against ALL attempts and against *detectable* attempts
-    (attempts whose distinct sender count >= min_senders — a degree-based
-    detector cannot catch smaller plants, so the detectable-only recall is
-    the fair ceiling-adjusted figure).
+    ``detectable_filter`` marks attempts the detector configuration could in
+    principle catch (e.g. distinct senders >= min_senders for fan-in, ring
+    length within [min_length, max_length] for cycle); recall against that
+    subset is the fair ceiling-adjusted figure.
     """
     planted_sets = [set(p) for p in planted]
     alert_key_sets = [_alert_keys(a, tx_lookup) for a in alerts]
@@ -58,12 +62,11 @@ def _evaluate(
         for p in planted_sets
         if any(len(keys & p) >= min_cover * len(p) for keys in alert_key_sets)
     )
-    detectable = 0
     detectable_hits = 0
-    if min_senders > 0:
+    detectable = 0
+    if detectable_filter is not None:
         for p in planted_sets:
-            distinct = len({k[0] for k in p})
-            if distinct >= min_senders:
+            if detectable_filter(p):
                 detectable += 1
                 if any(
                     len(keys & p) >= min_cover * len(p) for keys in alert_key_sets
@@ -74,8 +77,10 @@ def _evaluate(
         "alert_precision": round(tp / len(alerts), 4) if alerts else None,
         "planted_attempts": len(planted_sets),
         "attempt_recall": round(recall_hits / len(planted_sets), 4) if planted_sets else None,
-        "detectable_attempts": detectable,
-        "detectable_attempt_recall": round(detectable_hits / detectable, 4) if detectable else None,
+        "detectable_attempts": detectable if detectable_filter else None,
+        "detectable_attempt_recall": (
+            round(detectable_hits / detectable, 4) if detectable_filter and detectable else None
+        ),
     }
 
 
@@ -113,35 +118,80 @@ def main(argv: list[str] | None = None) -> int:
 
     planted_all = {
         typology: patterns.loc[patterns["typology"] == typology, "tx_keys"].tolist()
-        for typology in ("fan_in", "structuring")
+        for typology in ("fan_in", "fan_out", "cycle", "structuring")
     }
 
-    # Fan-in: small parameter grid — real plants range from 1-degree to
-    # 16-degree and span hours to days (verified against the Patterns file).
-    fan_in_grid = [
-        {"min_senders": 4, "window": pd.Timedelta(days=3)},
-        {"min_senders": 5, "window": pd.Timedelta(days=3)},
-        {"min_senders": 6, "window": pd.Timedelta(days=3)},
-    ]
-    results["fan_in"] = []
-    for params in fan_in_grid:
-        t0 = time.perf_counter()
-        alerts = detect_fan_in(tx, **params)
-        elapsed = time.perf_counter() - t0
-        row = _evaluate(
-            alerts, planted_all["fan_in"], tx_lookup, min_senders=params["min_senders"]
-        )
-        row.update({"params": {k: str(v) for k, v in params.items()},
-                    "runtime_seconds": round(elapsed, 1)})
-        results["fan_in"].append(row)
-        print(
-            f"[fan_in {params['min_senders']} senders / {params['window']}] "
-            f"{row['alerts']} alerts, precision={row['alert_precision']}, "
-            f"recall={row['attempt_recall']} "
-            f"(detectable-only: {row['detectable_attempt_recall']} of "
-            f"{row['detectable_attempts']}) in {elapsed:.1f}s",
-            flush=True,
-        )
+    def _run_grid(name, detector, grid, planted, detectable_filter, note=None):
+        results[name] = []
+        for params in grid:
+            t0 = time.perf_counter()
+            alerts = detector(tx, **params)
+            elapsed = time.perf_counter() - t0
+            row = _evaluate(
+                alerts, planted, tx_lookup, detectable_filter=detectable_filter
+            )
+            row.update(
+                {
+                    "params": {k: str(v) for k, v in params.items()},
+                    "runtime_seconds": round(elapsed, 1),
+                }
+            )
+            if note:
+                row["note"] = note
+            results[name].append(row)
+            print(
+                f"[{name} {params}] {row['alerts']} alerts, "
+                f"precision={row['alert_precision']}, recall={row['attempt_recall']}"
+                + (
+                    f" (detectable-only: {row['detectable_attempt_recall']} of "
+                    f"{row['detectable_attempts']})"
+                    if row["detectable_attempts"]
+                    else ""
+                )
+                + f" in {elapsed:.1f}s",
+                flush=True,
+            )
+
+    # Fan-in: real plants range from 1-degree to 16-degree, hours to days.
+    _run_grid(
+        "fan_in",
+        detect_fan_in,
+        [
+            {"min_senders": s, "window": pd.Timedelta(days=3)}
+            for s in (4, 5, 6)
+        ],
+        planted_all["fan_in"],
+        lambda p: len({k[0] for k in p}) >= 4,
+    )
+
+    # Fan-out (M1.5/F3): mirror protocol.
+    _run_grid(
+        "fan_out",
+        detect_fan_out,
+        [
+            {"min_receivers": r, "window": pd.Timedelta(days=3)}
+            for r in (4, 5, 6)
+        ],
+        planted_all["fan_out"],
+        lambda p: len({k[1] for k in p}) >= 4,
+    )
+
+    # Cycle (M1.5/F3): rings are currency-converting with unequal amounts.
+    # The degree cap is the sensitivity knob: 30 is conservative (precise,
+    # low recall); 100 recovers most detectable rings. Detectable = ring
+    # length <= 10 (the loosest max_length in this grid).
+    _run_grid(
+        "cycle",
+        detect_cycle,
+        [
+            {"min_length": 3, "max_length": 8, "window": pd.Timedelta(days=3), "degree_cap": 30},
+            {"min_length": 3, "max_length": 10, "window": pd.Timedelta(days=5), "degree_cap": 30},
+            {"min_length": 3, "max_length": 10, "window": pd.Timedelta(days=5), "degree_cap": 100},
+            {"min_length": 3, "max_length": 10, "window": pd.Timedelta(days=5), "degree_cap": 200},
+        ],
+        planted_all["cycle"],
+        lambda p: 3 <= len(p) <= 10,
+    )
 
     # Structuring: single default configuration; HI-Small/LI-Small plant no
     # structuring attempts, so ground-truth precision is n/a here — the
@@ -162,7 +212,7 @@ def main(argv: list[str] | None = None) -> int:
         flush=True,
     )
 
-    out_path = processed / f"{args.dataset_id}_motif-evaluation.json"
+    out_path = processed / f"{args.dataset_id}_motif-evaluation-v2.json"
     out_path.write_text(json.dumps(results, indent=2), encoding="utf-8")
     print(f"results -> {out_path}")
     return 0

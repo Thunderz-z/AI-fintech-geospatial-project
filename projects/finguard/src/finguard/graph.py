@@ -1,4 +1,4 @@
-"""Transaction graph construction and AML typology detectors (M1 step 6).
+"""Transaction graph construction and AML typology detectors (M1 step 6 + M1.5/F3).
 
 **A detected motif is a suspicious pattern, never a finding of money
 laundering** (AGENTS.md rule 7). Every alert produced here is a candidate
@@ -6,24 +6,30 @@ for human review, with the transaction evidence attached.
 
 Scale note: full networkx graphs over 5M edges are impractical, so the
 detectors run *vectorized on the edge frame* (pandas groupbys over
-pre-filtered candidate sets) and :func:`build_transaction_graph` materializes
-a real ``networkx.MultiDiGraph`` only for bounded windows (investigation
+pre-filtered candidate sets; cycle detection via a scipy sparse SCC
+pre-filter) and :func:`build_transaction_graph` materializes a real
+``networkx.MultiDiGraph`` only for bounded windows (investigation
 neighbourhoods, small fixtures, evidence bundles).
 """
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Any
 
 import networkx as nx
 import numpy as np
 import pandas as pd
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import connected_components
 
 __all__ = [
     "MotifAlert",
     "build_transaction_graph",
+    "detect_cycle",
     "detect_fan_in",
+    "detect_fan_out",
     "detect_structuring",
 ]
 
@@ -32,8 +38,8 @@ __all__ = [
 class MotifAlert:
     """One detected suspicious pattern with its transaction evidence."""
 
-    typology: str  # "fan_in" | "structuring"
-    account: str  # focal account (collector / receiving pair endpoint)
+    typology: str  # "fan_in" | "fan_out" | "structuring" | "cycle"
+    account: str  # focal account (collector / distributor / ring start)
     counter_account: str | None  # for structuring: the repeated counterparty
     tx_ids: tuple[int, ...]
     score: dict[str, Any] = field(default_factory=dict)
@@ -73,6 +79,76 @@ def build_transaction_graph(tx: pd.DataFrame) -> nx.MultiDiGraph:
     return graph
 
 
+def _best_window_burst(
+    times: np.ndarray, members: np.ndarray, tx_ids: np.ndarray,
+    min_members: int, window: pd.Timedelta,
+) -> dict[str, Any] | None:
+    """Best (max distinct-member) time window with >= min_members distinct members.
+
+    Shared two-pointer scan behind :func:`detect_fan_in` and
+    :func:`detect_fan_out`. Inputs must be sorted by time.
+    """
+    best: dict[str, Any] | None = None
+    left = 0
+    seen: dict[str, int] = {}
+    for right in range(len(times)):
+        seen[members[right]] = seen.get(members[right], 0) + 1
+        while (times[right] - times[left]) > window:
+            seen[members[left]] -= 1
+            if seen[members[left]] == 0:
+                del seen[members[left]]
+            left += 1
+        distinct = len(seen)
+        if distinct >= min_members and (best is None or distinct > best["distinct"]):
+            best = {
+                "distinct": distinct,
+                "tx_ids": tuple(int(t) for t in tx_ids[left : right + 1]),
+                "start": times[left],
+                "end": times[right],
+            }
+    return best
+
+
+def _fan_bursts(
+    tx: pd.DataFrame, group_col: str, member_col: str,
+    min_members: int, window: pd.Timedelta, typology: str,
+) -> list[MotifAlert]:
+    """Shared fan-in/fan-out machinery: distinct members converge on a group."""
+    edges = tx[["tx_id", "timestamp", "from_account", "to_account"]]
+    distinct = edges.groupby(group_col, observed=True)[member_col].transform("nunique")
+    candidates = edges.loc[distinct >= min_members]
+
+    alerts: list[MotifAlert] = []
+    member_key = "distinct_senders" if typology == "fan_in" else "distinct_receivers"
+    for group, group_edges in candidates.groupby(group_col, observed=True, sort=False):
+        group_edges = group_edges.sort_values("timestamp", kind="mergesort")
+        best = _best_window_burst(
+            group_edges["timestamp"].to_numpy(),
+            group_edges[member_col].to_numpy(),
+            group_edges["tx_id"].to_numpy(),
+            min_members,
+            window,
+        )
+        if best is not None:
+            alerts.append(
+                MotifAlert(
+                    typology=typology,
+                    account=str(group),
+                    counter_account=None,
+                    tx_ids=best["tx_ids"],
+                    score={
+                        member_key: best["distinct"],
+                        "window_start": str(best["start"]),
+                        "window_end": str(best["end"]),
+                        f"min_{member_key}": min_members,
+                        "window": str(window),
+                    },
+                )
+            )
+    alerts.sort(key=lambda a: -a.score[member_key])
+    return alerts
+
+
 def detect_fan_in(
     tx: pd.DataFrame,
     *,
@@ -98,58 +174,217 @@ def detect_fan_in(
         Alerts sorted by distinct-sender count (strongest first).
     """
     window = window if window is not None else pd.Timedelta(hours=24)
-    incoming = tx[["tx_id", "timestamp", "from_account", "to_account"]]
+    return _fan_bursts(tx, "to_account", "from_account", min_senders, window, "fan_in")
 
-    distinct = incoming.groupby("to_account", observed=True)["from_account"].transform(
-        "nunique"
+
+def detect_fan_out(
+    tx: pd.DataFrame,
+    *,
+    min_receivers: int = 6,
+    window: pd.Timedelta | None = None,
+) -> list[MotifAlert]:
+    """Detect fan-out attempts: one account disperses to many distinct
+    receivers within a time window (mirror of :func:`detect_fan_in`).
+
+    Planted IBM fan-outs (verified against HI-Small_Patterns.txt) use one
+    distributor with varied amounts over hours-to-days, so like fan-in no
+    amount condition is applied.
+
+    Args:
+        tx: Canonical transactions.
+        min_receivers: Distinct receivers required inside the window.
+        window: Dispersal window (default 24 h).
+
+    Returns:
+        Alerts sorted by distinct-receiver count (strongest first).
+    """
+    window = window if window is not None else pd.Timedelta(hours=24)
+    return _fan_bursts(
+        tx, "from_account", "to_account", min_receivers, window, "fan_out"
     )
-    candidates = incoming.loc[distinct >= min_senders]
+
+
+def detect_cycle(
+    tx: pd.DataFrame,
+    *,
+    min_length: int = 3,
+    max_length: int = 8,
+    window: pd.Timedelta | None = None,
+    degree_cap: int = 30,
+    max_scc_nodes: int = 50_000,
+    max_dfs_expansions: int = 1_000_000,
+) -> list[MotifAlert]:
+    """Detect cycle attempts: funds flowing around a directed ring back to
+    the origin account within a time span.
+
+    Scale strategy (5M edges):
+
+    1. Restrict to low-degree nodes (total degree <= ``degree_cap``) —
+       planted ring accounts are purpose-built and low-degree, high-degree
+       hubs are excluded (documented heuristic).
+    2. Compute strongly connected components of that sparse subgraph with
+       ``scipy.sparse.csgraph`` — a cycle can only live inside one SCC.
+    3. Inside each SCC of feasible size, run a depth-limited DFS with
+       time-increasing edges and a per-SCC expansion budget.
+
+    Planted IBM cycles convert currencies with unequal amounts (verified
+    against HI-Small_Patterns.txt), so no amount condition is applied.
+
+    Args:
+        tx: Canonical transactions.
+        min_length: Minimum ring length (transactions in the loop).
+        max_length: Maximum ring length searched.
+        window: Max time span from first to last ring edge (default 3 days).
+        degree_cap: Node degree (in + out) ceiling for ring participants.
+        max_scc_nodes: Skip SCCs larger than this (documented bound).
+        max_dfs_expansions: Per-SCC DFS expansion budget (documented bound;
+            a budget exhaustion can miss rings in that SCC).
+
+    Returns:
+        Alerts sorted by ring length (longest first); rings sharing the
+        same transaction set are deduplicated.
+    """
+    window = window if window is not None else pd.Timedelta(days=3)
+    edges = tx[["tx_id", "timestamp", "from_account", "to_account"]].loc[
+        tx["from_account"] != tx["to_account"]
+    ]
+    if len(edges) < min_length:
+        return []
+
+    codes, _ = pd.factorize(
+        pd.concat([edges["from_account"], edges["to_account"]], ignore_index=True),
+        use_na_sentinel=False,
+    )
+    n_edges = len(edges)
+    n_nodes = int(codes.max()) + 1
+    from_int = codes[:n_edges]
+    to_int = codes[n_edges:]
+
+    # Step 1: low-degree eligible subgraph (purpose-built ring accounts are
+    # low-degree; hubs are excluded as a documented heuristic).
+    total_degree = np.bincount(to_int, minlength=n_nodes) + np.bincount(
+        from_int, minlength=n_nodes
+    )
+    eligible = total_degree <= degree_cap
+    keep = eligible[from_int] & eligible[to_int]
+    sub_from, sub_to = from_int[keep], to_int[keep]
+    sub_tx = edges["tx_id"].to_numpy()[keep]
+    sub_ts_ns = edges["timestamp"].to_numpy(dtype="datetime64[ns]").astype("int64")[keep]
+
+    # Step 2: SCCs of the eligible subgraph — cycles live inside one SCC.
+    adjacency = csr_matrix(
+        (np.ones(len(sub_from), dtype=np.int8), (sub_from, sub_to)),
+        shape=(n_nodes, n_nodes),
+    )
+    n_components, labels = connected_components(
+        csgraph=adjacency, directed=True, connection="strong"
+    )
+    component_sizes = np.bincount(labels, minlength=n_components)
+    feasible = np.nonzero(
+        (component_sizes >= min_length) & (component_sizes <= max_scc_nodes)
+    )[0]
+
     alerts: list[MotifAlert] = []
+    seen_rings: set[frozenset[int]] = set()
+    exhausted_sccs = 0
+    window_ns = window.value  # pd.Timedelta -> nanoseconds
 
-    for receiver, edges in candidates.groupby("to_account", observed=True, sort=False):
-        edges = edges.sort_values("timestamp", kind="mergesort").reset_index(drop=True)
-        times = edges["timestamp"].to_numpy()
-        senders = edges["from_account"].to_numpy()
-        tx_ids = edges["tx_id"].to_numpy()
+    for component in feasible:
+        mask = (labels[sub_from] == component) & (labels[sub_to] == component)
+        c_from, c_to = sub_from[mask], sub_to[mask]
+        c_tx, c_ts_ns = sub_tx[mask], sub_ts_ns[mask]
+        if len(c_from) < min_length:
+            continue
+        order = np.argsort(c_ts_ns, kind="mergesort")
+        c_from, c_to, c_tx, c_ts_ns = (
+            c_from[order], c_to[order], c_tx[order], c_ts_ns[order],
+        )
 
-        best: dict[str, Any] | None = None
-        left = 0
-        seen: dict[str, int] = {}
-        for right in range(len(edges)):
-            seen[senders[right]] = seen.get(senders[right], 0) + 1
-            while (times[right] - times[left]) > window:
-                seen[senders[left]] -= 1
-                if seen[senders[left]] == 0:
-                    del seen[senders[left]]
-                left += 1
-            distinct = len(seen)
-            if distinct >= min_senders and (
-                best is None or distinct > best["distinct"]
-            ):
-                best = {
-                    "distinct": distinct,
-                    "tx_ids": tuple(int(t) for t in tx_ids[left : right + 1]),
-                    "start": times[left],
-                    "end": times[right],
-                }
-        if best is not None:
-            alerts.append(
-                MotifAlert(
-                    typology="fan_in",
-                    account=str(receiver),
-                    counter_account=None,
-                    tx_ids=best["tx_ids"],
-                    score={
-                        "distinct_senders": best["distinct"],
-                        "window_start": str(best["start"]),
-                        "window_end": str(best["end"]),
-                        "min_senders": min_senders,
-                        "window": str(window),
-                    },
-                )
+        successors: dict[int, list[tuple[int, int, int]]] = {}
+        for i in range(len(c_from)):
+            successors.setdefault(int(c_from[i]), []).append(
+                (int(c_to[i]), int(c_tx[i]), int(c_ts_ns[i]))
             )
 
-    alerts.sort(key=lambda a: -a.score["distinct_senders"])
+        expansions = 0
+        budget_exhausted = False
+        for start in successors:
+            if budget_exhausted:
+                break
+            # Stack entries: (node, nodes_path, edges_path, first_ns, last_ns)
+            stack: list[tuple[int, tuple[int, ...], tuple[int, ...], int | None, int | None]] = [
+                (start, (start,), (), None, None)
+            ]
+            while stack:
+                if expansions >= max_dfs_expansions:
+                    budget_exhausted = True
+                    break
+                expansions += 1
+                node, nodes_path, edges_path, first_ns, last_ns = stack.pop()
+                if len(edges_path) >= max_length:
+                    continue
+                for nxt, tx_id, ts_ns in successors.get(node, ()):
+                    if last_ns is not None and ts_ns <= last_ns:
+                        continue  # time-increasing edges only
+                    if first_ns is not None and ts_ns - first_ns > window_ns:
+                        continue  # ring span bound
+                    new_edges = edges_path + (tx_id,)
+                    if nxt == start:
+                        if len(new_edges) >= min_length:
+                            key = frozenset(new_edges)
+                            if key not in seen_rings:
+                                seen_rings.add(key)
+                                ring_ns = c_ts_ns[np.isin(c_tx, np.array(new_edges))]
+                                alerts.append(
+                                    MotifAlert(
+                                        typology="cycle",
+                                        account=str(start),
+                                        counter_account=None,
+                                        tx_ids=new_edges,
+                                        score={
+                                            "ring_length": len(new_edges),
+                                            "window_start": str(
+                                                pd.Timestamp(int(ring_ns.min()), unit="ns")
+                                            ),
+                                            "window_end": str(
+                                                pd.Timestamp(int(ring_ns.max()), unit="ns")
+                                            ),
+                                            "min_length": min_length,
+                                            "max_length": max_length,
+                                            "window": str(window),
+                                            "degree_cap": degree_cap,
+                                        },
+                                    )
+                                )
+                        continue
+                    if nxt in nodes_path:
+                        continue  # simple cycles only
+                    stack.append(
+                        (
+                            nxt,
+                            nodes_path + (nxt,),
+                            new_edges,
+                            ts_ns if first_ns is None else first_ns,
+                            ts_ns,
+                        )
+                    )
+        if budget_exhausted:
+            exhausted_sccs += 1
+
+    if exhausted_sccs:
+        warnings.warn(
+            f"detect_cycle: {exhausted_sccs} SCC(s) hit the DFS expansion budget "
+            f"({max_dfs_expansions}); some rings may be missed in those components",
+            stacklevel=2,
+        )
+
+    if alerts:
+        # Deduplicate rings that share their transaction set (rotations).
+        unique: dict[frozenset[int], MotifAlert] = {
+            frozenset(a.tx_ids): a for a in alerts
+        }
+        alerts = list(unique.values())
+    alerts.sort(key=lambda a: -a.score["ring_length"])
     return alerts
 
 
