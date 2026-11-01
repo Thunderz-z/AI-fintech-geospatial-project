@@ -12,7 +12,6 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
-import pickle
 import sys
 
 from relia.contracts.evidence import (
@@ -60,15 +59,14 @@ def main() -> int:
     report_path = out_dir / f"classification_{args.season}_report.json"
     report_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
-    model_path = out_dir / f"classification_{args.season}_rf.joblib.pkl"
-    with model_path.open("wb") as handle:
-        pickle.dump(model, handle)
-
     print(f"fold accuracy: {report.fold_accuracy}")
     print(f"mean block-CV accuracy: {report.mean_accuracy} +/- {report.sd_accuracy}")
     print(f"class support: {report.class_support}")
     print(f"wrote {report_path}")
-    print(f"wrote {model_path}")
+    print(
+        "model not persisted: 900+ MB pickled forest vs deterministic reproducibility "
+        "from the seeded config (re-run this script to refit)"
+    )
 
     contract = EvidenceContract(
         claim_text=(
