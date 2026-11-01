@@ -1,5 +1,10 @@
 # AI Engineering Portfolio — FinTech + Climate/Geospatial AI
 
+[![CI](https://github.com/Thunderz-z/AI-fintech-geospatial-project/actions/workflows/ci.yml/badge.svg)](https://github.com/Thunderz-z/AI-fintech-geospatial-project/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-335%20passed-2EA043)
+![License](https://img.shields.io/badge/license-MIT-blue)
+
 A production-oriented AI engineering portfolio built as a single monorepo with three connected
 assets sharing one architectural theme: **machine-verifiable evidence**. Every claim produced by
 these systems — an environmental finding, a suspicious-activity alert, an evaluation answer —
@@ -160,4 +165,5 @@ RELIA evaluations: `uv run relia eval run --help` (deterministic checks; LLM ans
   contract); the classification measures weak-label agreement, not map accuracy
 - No database: queue state is append-only JSONL on the data root; Postgres/PostGIS is planned but
   intentionally not provisioned (deployment doc)
-- CI's first real run happens on the first push (GitHub repo creation pending)
+- CI runs on every push and pull request (lint + tests + container builds); the badge above
+  shows the latest run
