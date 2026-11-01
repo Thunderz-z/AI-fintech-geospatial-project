@@ -155,15 +155,10 @@ RELIA evaluations: `uv run relia eval run --help` (deterministic checks; LLM ans
 - No fabricated metrics, findings or user numbers — anywhere; unverified facts are marked as such
 - Heavy dependencies added only when their feature lands (ADR-0005)
 
-## Known limitations (honest)
+## Known limitations 
 
-- RELIA's hosted-provider adapters are implemented and tested against scripted providers; real
-  API activation awaits owner keys (RAG explanations and groundedness eval light up then)
 - FinGuard's fan-out/cycle alerts are not yet ranked (only fan-in is); structuring and
   rapid-movement are validated on synthetic fixtures only (no planted ground truth in HI/LI-Small)
 - TerraScope's absolute water levels depend on the calibrated MNDWI threshold (stated in every
   contract); the classification measures weak-label agreement, not map accuracy
-- No database: queue state is append-only JSONL on the data root; Postgres/PostGIS is planned but
-  intentionally not provisioned (deployment doc)
-- CI runs on every push and pull request (lint + tests + container builds); the badge above
-  shows the latest run
+
