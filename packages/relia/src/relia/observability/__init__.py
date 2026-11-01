@@ -1,10 +1,11 @@
 """Observability: structured logging, tracing exporters, cost accounting.
 
-Planned (``docs/architecture/relia.md``):
-
-* Structured logging configuration shared by all services.
-* OpenTelemetry exporter wiring behind :class:`relia.tracing.TraceRecorder`.
-* Token and cost accounting built on ``relia.providers.base.Usage``.
-
-Not implemented yet.
+Implemented: :class:`relia.tracing.memory.InMemoryTraceRecorder` (spans,
+events, errors, JSON export) and :class:`relia.observability.cost.CostLedger`
+(token/cost accumulation from provider responses). Planned: OpenTelemetry
+collector forwarding and structured-logging presets.
 """
+
+from relia.observability.cost import CostLedger, CostSnapshot
+
+__all__ = ["CostLedger", "CostSnapshot"]
