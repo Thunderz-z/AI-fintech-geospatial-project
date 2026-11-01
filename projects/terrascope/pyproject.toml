@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Geospatial environmental intelligence for the Pallikaranai Marsh, Chennai: satellite ingestion, land-cover analytics and evidence-grounded reporting."
 requires-python = ">=3.13"
 dependencies = [
+    "fastapi>=0.115",
     "geopandas>=1.0.1",
     "matplotlib>=3.9",
     "numpy>=2.1.0",
@@ -16,6 +17,7 @@ dependencies = [
     "rioxarray>=0.17.0",
     "scikit-learn>=1.5",
     "shapely>=2.0.6",
+    "uvicorn>=0.32",
 ]
 
 [tool.uv.sources]

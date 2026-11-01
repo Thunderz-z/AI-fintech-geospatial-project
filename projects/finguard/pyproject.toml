@@ -5,6 +5,8 @@ description = "Financial fraud and AML intelligence: transaction features, graph
 requires-python = ">=3.13"
 dependencies = [
     "relia",
+    "fastapi>=0.115",
+    "uvicorn>=0.32",
     # Data stack (ADR-0005 "FinGuard pipelines" row); added in M1 step 2.
     # All four ship cp313 Windows wheels; no CUDA/GPU extras (CPU-first rule).
     "pandas>=2.2.3",
