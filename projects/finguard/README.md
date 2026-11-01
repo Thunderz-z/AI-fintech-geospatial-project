@@ -4,10 +4,12 @@ Financial fraud detection and AML intelligence on synthetic transaction data —
 features, imbalance-aware models, transaction-graph AML typologies, evidence-grounded RAG
 explanations and a human-in-the-loop investigation workflow.
 
-**Status: M1 data foundation implemented; model/graph/API layers designed, not implemented.**
-Schema validation, CSV ingestion + Parquet conversion, temporal splitting with leakage
-assertions, and the synthetic typology generator exist and are tested (40 tests, dataset-free).
-LightGBM baseline, graph motif detectors, RAG and API are still planned. See:
+**Status: M1 implemented on real acquired data (steps 1-6 of the roadmap).**
+Schema/ingest/splitting/synthetic fixtures (tested), leakage-safe features, LightGBM
+baseline (HI-Small test PR-AUC 0.0159 = 15.6x base rate; 92% precision at a 0.1% alert
+budget), fan-in/structuring detectors (fan-in: 100% recall on detectable planted attempts,
+precision is the open problem). RAG, investigation workflow and API still planned. Metrics
+JSONs live in `<data_root>/finguard/processed/`; all data is SYNTHETIC. See:
 
 - Architecture: [`../../docs/architecture/finguard.md`](../../docs/architecture/finguard.md)
 - Dataset research: [`../../docs/data-sources/finguard-datasets.md`](../../docs/data-sources/finguard-datasets.md)

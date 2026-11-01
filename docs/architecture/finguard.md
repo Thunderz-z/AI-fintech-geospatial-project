@@ -1,9 +1,12 @@
 # FinGuard — Architecture
 
-Status: M1 data foundation implemented (schema validation, IBM AML CSV ingestion +
-Parquet conversion, temporal splitting with leakage assertions, synthetic typology
-fixtures — all tested dataset-free). Features, model, graph motifs, RAG, investigation
-workflow and API remain designed-only.
+Status: M1 implemented end to end on the real acquired HI-Small/LI-Small data:
+schema validation, CSV→Parquet ingestion, temporal splitting + leakage gates, leakage-safe
+features, LightGBM fraud baseline with alert-budget operating points, fan-in/structuring
+motif detectors evaluated against the planted Patterns ground truth (plus synthetic
+fixtures). RAG explanations, investigation workflow, evidence bundles and API remain
+designed-only. Results: `<data_root>/finguard/processed/*-metrics.json` (synthetic data;
+detected motifs are suspicious patterns, never laundering findings).
 
 ## Problem
 
