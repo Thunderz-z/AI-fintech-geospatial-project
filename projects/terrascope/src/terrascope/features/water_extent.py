@@ -45,6 +45,7 @@ __all__ = [
     "DEFAULT_MNDWI_WATER_THRESHOLD",
     "WaterExtentObservation",
     "ramsar_mask_on_grid",
+    "read_scene_mndwi",
     "scene_water_extent",
     "water_extent_time_series",
     "write_water_extent_report",
@@ -86,6 +87,16 @@ def ramsar_mask_on_grid(boundary_geojson: Path, grid: CompositeGrid) -> np.ndarr
     return burned.astype(bool)
 
 
+def read_scene_mndwi(
+    scene_dir: Path, grid20: CompositeGrid, gate: DownloadGate | None = None
+) -> np.ndarray:
+    """Scene MNDWI on the 20 m grid (B03 bilinearly re-projected, B11 native)."""
+    gate = gate or DownloadGate()  # local cache reads only
+    green = read_band_onto_grid(str(scene_dir / "B03.tif"), "B03", grid20, gate)
+    swir1 = read_band_onto_grid(str(scene_dir / "B11.tif"), "B11", grid20, gate)
+    return mndwi(green, swir1)
+
+
 def scene_water_extent(
     scene_dir: Path,
     grid20: CompositeGrid,
@@ -101,9 +112,7 @@ def scene_water_extent(
     scene_id = scene_dir.name
     scl = read_scl_onto_grid(str(scene_dir / "SCL.tif"), grid20, gate)
     valid = scl_valid_mask(scl, scl_exclude)
-    green = read_band_onto_grid(str(scene_dir / "B03.tif"), "B03", grid20, gate)
-    swir1 = read_band_onto_grid(str(scene_dir / "B11.tif"), "B11", grid20, gate)
-    water_index = mndwi(green, swir1)
+    water_index = read_scene_mndwi(scene_dir, grid20, gate)
 
     valid_px = int(np.count_nonzero(valid))
     scene_valid_fraction = valid.mean() if valid.size else 0.0

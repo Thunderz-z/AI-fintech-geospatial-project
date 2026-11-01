@@ -11,6 +11,7 @@ from terrascope.features.water_extent import (
     DEFAULT_MNDWI_WATER_THRESHOLD,
     WaterExtentObservation,
     ramsar_mask_on_grid,
+    read_scene_mndwi,
     scene_water_extent,
     water_extent_time_series,
 )
@@ -24,6 +25,7 @@ __all__ = [
     "ndwi",
     "normalized_difference",
     "ramsar_mask_on_grid",
+    "read_scene_mndwi",
     "scene_water_extent",
     "water_extent_time_series",
 ]

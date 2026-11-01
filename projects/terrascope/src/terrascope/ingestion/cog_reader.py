@@ -43,6 +43,7 @@ __all__ = [
     "read_band_onto_grid",
     "read_bounds_window",
     "read_scl_onto_grid",
+    "window_covering_bounds",
 ]
 
 
@@ -142,7 +143,7 @@ def _openable_href(href: str) -> str:
     return href
 
 
-def _window_covering(
+def window_covering_bounds(
     dataset: rasterio.DatasetReader,
     bounds: tuple[float, float, float, float],
     bounds_epsg: int,
@@ -193,7 +194,7 @@ def read_bounds_window(
     with rasterio.open(_openable_href(href)) as dataset:
         # _window_covering reprojects *bounds* into the dataset CRS when
         # needed, then clips the window to the raster.
-        window = _window_covering(dataset, bounds, bounds_epsg)
+        window = window_covering_bounds(dataset, bounds, bounds_epsg)
         array = dataset.read(1, window=window)
         read_transform = window_transform(window, dataset.transform)
         resolution = float(dataset.res[0])
@@ -231,7 +232,7 @@ def _read_onto_grid(
     grid_crs = PyCRS.from_epsg(grid.crs_epsg)
     destination = np.full(grid.shape, out_nodata, dtype=out_dtype)
     with rasterio.open(_openable_href(href)) as dataset:
-        window = _window_covering(dataset, grid.bounds, grid.crs_epsg)
+        window = window_covering_bounds(dataset, grid.bounds, grid.crs_epsg)
         source = dataset.read(1, window=window)
         source_transform = window_transform(window, dataset.transform)
         rasterio_reproject(
