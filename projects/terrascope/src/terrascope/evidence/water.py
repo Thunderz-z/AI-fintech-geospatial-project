@@ -24,6 +24,11 @@ from terrascope.features.water_extent import WaterExtentObservation
 __all__ = ["water_extent_contract"]
 
 
+def _qa_agreement(calibration: dict) -> str:
+    scores = calibration.get("qa_point_scores", [])
+    return f"{sum(1 for q in scores if q['agrees'])}/{len(scores)}"
+
+
 def water_extent_contract(
     observations: list[WaterExtentObservation],
     *,
@@ -32,11 +37,14 @@ def water_extent_contract(
     report_path: Path,
     threshold: float,
     min_valid_fraction: float,
+    calibration: dict | None = None,
 ) -> EvidenceContract:
     """Build the evidence envelope for a water-extent summary claim.
 
     Fully-abstained series produce an abstaining contract; otherwise the
     claim states the observed range with per-date abstentions in uncertainty.
+    When *calibration* (the calibration artefact dict) is given, the contract
+    states the reference product, agreement statistics and QA outcome.
     """
     abstained = [o for o in observations if o.abstained]
     usable = [o for o in observations if not o.abstained]
@@ -55,6 +63,22 @@ def water_extent_contract(
             "bands": {"green": "B03 (10 m -> 20 m grid)", "swir1": "B11 (20 m)"},
             "grid_crs": "EPSG:32644",
             "scene_dedup": "latest processing baseline per sensing timestamp",
+            **(
+                {
+                    "calibration": {
+                        "reference_product": calibration.get("reference_product"),
+                        "region": calibration.get("region"),
+                        "method": calibration.get("method"),
+                        "n_usable_dates": calibration.get("n_usable_dates"),
+                        "mean_kappa_at_threshold": calibration.get(
+                            "mean_kappa_by_threshold", {}
+                        ).get(f"{threshold:+.2f}"),
+                        "qa_points_agree": _qa_agreement(calibration),
+                    }
+                }
+                if calibration
+                else {"calibration": "none (v0 uncalibrated default)"}
+            ),
         },
     )
 
@@ -87,8 +111,16 @@ def water_extent_contract(
 
     limitations = [
         (
-            "MNDWI > 0 threshold is uncalibrated for turbid marsh water "
-            "(v0; revisit with QA histograms)."
+            (
+                "Threshold CALIBRATED against the stated reference product (permanent water "
+                "class); agreement is moderate and seasonal-marsh water differs from "
+                "'permanent water' by definition."
+            )
+            if calibration
+            else (
+                "MNDWI > 0 threshold is uncalibrated for turbid marsh water "
+                "(v0; revisit with QA histograms)."
+            )
         ),
         "AOI water fractions use the APPROXIMATE study bbox boundary; only the Ramsar-polygon "
         "fractions carry an authoritative boundary.",
@@ -126,6 +158,8 @@ def water_extent_contract(
             ),
         )
 
+    if threshold == 0:  # normalize -0.0 so the claim text reads MNDWI(>0)
+        threshold = 0.0
     aoi_values = [o.water_fraction_aoi for o in usable if o.water_fraction_aoi is not None]
     ramsar_values = [o.water_fraction_ramsar for o in usable if o.water_fraction_ramsar is not None]
     claim_text = (

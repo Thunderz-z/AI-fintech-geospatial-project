@@ -159,13 +159,17 @@ def score_threshold(
     reference: np.ndarray,
     reference_defined: np.ndarray,
     threshold: float,
+    region_mask: np.ndarray | None = None,
 ) -> CalibrationScore:
     """Confusion matrix of ``water_index > threshold`` vs the reference.
 
-    Scored only where the scene is valid AND the reference is defined; NaN
-    index cells cannot pass the comparison and drop out automatically.
+    Scored only where the scene is valid AND the reference is defined (AND
+    inside *region_mask* when given — e.g. the authoritative Ramsar polygon);
+    NaN index cells cannot pass the comparison and drop out automatically.
     """
     comparable = valid & reference_defined
+    if region_mask is not None:
+        comparable = comparable & region_mask
     predicted = (water_index > threshold) & comparable
     actual = reference & comparable
     tp = int(np.count_nonzero(predicted & actual))
@@ -213,6 +217,7 @@ def calibrate_threshold(
     *,
     thresholds: tuple[float, ...] = DEFAULT_SWEEP,
     scl_exclude: frozenset[int] | set[int] = SCL_EXCLUDE_DEFAULT,
+    region_mask: np.ndarray | None = None,
     gate: DownloadGate | None = None,
 ) -> CalibrationResult:
     """Sweep thresholds across scene dates; pick the max mean kappa.
@@ -246,7 +251,9 @@ def calibrate_threshold(
     per_date_optimal: dict[str, float] = {}
     for date_key, (valid, water_index) in per_date.items():
         scores = [
-            score_threshold(water_index, valid, reference, reference_defined, threshold)
+            score_threshold(
+                water_index, valid, reference, reference_defined, threshold, region_mask
+            )
             for threshold in thresholds
         ]
         per_date_optimal[date_key] = max(scores, key=lambda score: score.kappa).threshold
@@ -256,7 +263,7 @@ def calibrate_threshold(
             np.mean(
                 [
                     score_threshold(
-                        water_index, valid, reference, reference_defined, threshold
+                        water_index, valid, reference, reference_defined, threshold, region_mask
                     ).kappa
                     for valid, water_index in per_date.values()
                 ]
@@ -267,7 +274,7 @@ def calibrate_threshold(
     chosen = max(mean_kappa, key=lambda t: (mean_kappa[t], -abs(t)))
 
     scores_at_chosen = [
-        score_threshold(water_index, valid, reference, reference_defined, chosen)
+        score_threshold(water_index, valid, reference, reference_defined, chosen, region_mask)
         for valid, water_index in per_date.values()
     ]
     return CalibrationResult(

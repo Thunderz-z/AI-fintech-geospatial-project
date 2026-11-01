@@ -46,9 +46,10 @@ datasets:
     required_preprocessing: "store as-acquired window; derive 20 m reference masks (fraction-of-class per cell) for calibration; class legend v200: 10 tree, 20 shrub, 30 grass, 40 crop, 50 built-up, 60 bare, 70 snow, 80 permanent water, 90 herbaceous wetland, 95 mangroves, 100 moss"
     intended_use: "water-class reference for MNDWI threshold calibration (class 80); weak source labels for the first land-cover classification (T3)"
     known_limitations: "single epoch (2021) vs 2024 winter composite (temporal mismatch for labels); WC 'herbaceous wetland' (90) is vegetated wetland, not open water; v200 vs v100 algorithm differences preclude naive year-over-year comparison"
-    acquisition_date: null
-    checksums: null
-    status: planned  # VERIFIED access path 2026-11-01; download gated behind owner approval (round-2 T1)
+    acquisition_date: "2026-11-01"
+    checksums: "sha256 45032a61023fd0eea957a8764572c6624b4cbc62f0f0ee141cfd99410087c89e (155,067 bytes; raw/esa-worldcover/acquisition_log.jsonl)"
+    acquired_window: "1568x1211 px EPSG:4326 windowed from the 36000x36000 tile (0.14%); classes present: 10,20,30,40,50,60,80,90"
+    status: acquired  # round-2 T1, owner-approved
 
   - id: osm-aoi-roads-buildings
     name: OpenStreetMap roads and buildings (AOI)

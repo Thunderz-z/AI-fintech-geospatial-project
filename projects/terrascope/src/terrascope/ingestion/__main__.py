@@ -81,6 +81,13 @@ def _build_parser() -> argparse.ArgumentParser:
                 default=None,
                 help="authoritative boundary GeoJSON (default: Ramsar IN2481 on the data root)",
             )
+        if name == "water":
+            cmd.add_argument(
+                "--calibration",
+                type=str,
+                default=None,
+                help="calibration artefact JSON (round-2 T2); emits _v1 outputs",
+            )
     return parser
 
 
@@ -185,15 +192,27 @@ def _run_water(args: argparse.Namespace, root_path: Path | None) -> int:
         print(f"boundary file missing: {boundary}")
         return 1
 
+    calibration = None
+    calibration_path = getattr(args, "calibration", None)
+    if calibration_path:
+        calibration_file = Path(calibration_path)
+        if not calibration_file.is_file():
+            print(f"calibration artefact missing: {calibration_file}")
+            return 1
+        calibration = json.loads(calibration_file.read_text(encoding="utf-8"))
+
+    threshold = float(calibration["threshold"]) if calibration else DEFAULT_MNDWI_WATER_THRESHOLD
+    version = "_v1" if calibration else ""
     observations = water_extent_time_series(
         start=args.start,
         end=args.end,
         boundary_geojson=boundary,
         root=root,
+        threshold=threshold,
     )
     out_dir = root / "processed" / "water-extent"
     report_path = write_water_extent_report(
-        observations, out_dir / f"water_extent_{args.start}_{args.end}.json"
+        observations, out_dir / f"water_extent_{args.start}_{args.end}{version}.json"
     )
     print(f"  water-extent report: {report_path}")
     for obs in observations:
@@ -212,11 +231,12 @@ def _run_water(args: argparse.Namespace, root_path: Path | None) -> int:
         start=args.start,
         end=args.end,
         report_path=report_path,
-        threshold=DEFAULT_MNDWI_WATER_THRESHOLD,
+        threshold=threshold,
         min_valid_fraction=0.80,
+        calibration=calibration,
     )
     contract_path = write_contract(
-        contract, out_dir / f"water_extent_{args.start}_{args.end}.evidence.json"
+        contract, out_dir / f"water_extent_{args.start}_{args.end}{version}.evidence.json"
     )
     print(f"  evidence contract: {contract_path} ({contract.validation_status.value})")
     print(f"  claim: {contract.claim_text}")
