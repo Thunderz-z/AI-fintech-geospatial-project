@@ -14,7 +14,6 @@ from __future__ import annotations
 import datetime as dt
 import json
 import sys
-from pathlib import Path
 
 import matplotlib
 
@@ -46,22 +45,32 @@ def _bootstrap_ci(values: np.ndarray, rng: np.random.Generator) -> dict:
     }
 
 
+def _month_is(dates: np.ndarray, months: tuple[int, ...]) -> np.ndarray:
+    month_index = dates.astype("datetime64[M]").astype(int) % 12 + 1  # 1..12
+    return np.isin(month_index, months)
+
+
 def main() -> int:
     root = data_dir()
-    report_path = root / "processed" / "water-extent" / "water_extent_2019-04-01_2026-10-31_v1.json"
+    report_path = (
+        root / "processed" / "water-extent" / "water_extent_2019-04-01_2026-10-31_v1.json"
+    )
     observations = json.loads(report_path.read_text(encoding="utf-8"))["observations"]
-    usable = [o for o in observations if not o["abstained"] and o["water_fraction_ramsar"] is not None]
+    usable = [
+        o
+        for o in observations
+        if not o["abstained"] and o["water_fraction_ramsar"] is not None
+    ]
 
     dates = np.array([dt.date.fromisoformat(o["sensing_date"]) for o in usable])
     fractions = np.array([o["water_fraction_ramsar"] for o in usable], dtype=np.float64)
 
-    monsoon = fractions[np.isin(dates.astype("datetime64[M]").astype(int) % 12, [m - 1 for m in MONSOON_MONTHS])]
-    dry = fractions[np.isin(dates.astype("datetime64[M]").astype(int) % 12, [m - 1 for m in DRY_MONTHS])]
+    monsoon = fractions[_month_is(dates, MONSOON_MONTHS)]
+    dry = fractions[_month_is(dates, DRY_MONTHS)]
     rng = np.random.default_rng(SEED)
     monsoon_stats = _bootstrap_ci(monsoon, rng)
     dry_stats = _bootstrap_ci(dry, rng)
     diff = monsoon.mean() - dry.mean()
-    pooled = np.concatenate([monsoon, dry])
     n_m, n_d = monsoon.size, dry.size
     boot_diffs = np.empty(N_BOOTSTRAP)
     for i in range(N_BOOTSTRAP):
@@ -98,12 +107,18 @@ def main() -> int:
     json_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
     figure, ax = plt.subplots(figsize=(14, 6), dpi=110)
-    is_monsoon = np.isin(dates.astype("datetime64[M]").astype(int) % 12, [m - 1 for m in MONSOON_MONTHS])
-    ax.scatter(dates[~is_monsoon], fractions[~is_monsoon] * 100, s=12, alpha=0.6, label="other dates", color="steelblue")
-    ax.scatter(dates[is_monsoon], fractions[is_monsoon] * 100, s=14, alpha=0.8, label="NE monsoon (Oct-Dec)", color="darkorange")
-    for stats, x_offset, color in (
-        (monsoon_stats, dt.date(2025, 6, 1), "darkorange"),
-        (dry_stats, dt.date(2019, 6, 1), "steelblue"),
+    is_monsoon = _month_is(dates, MONSOON_MONTHS)
+    ax.scatter(
+        dates[~is_monsoon], fractions[~is_monsoon] * 100,
+        s=12, alpha=0.6, label="other dates", color="steelblue",
+    )
+    ax.scatter(
+        dates[is_monsoon], fractions[is_monsoon] * 100,
+        s=14, alpha=0.8, label="NE monsoon (Oct-Dec)", color="darkorange",
+    )
+    for stats, color in (
+        (monsoon_stats, "darkorange"),
+        (dry_stats, "steelblue"),
     ):
         ax.hlines(
             [stats["mean"] * 100, stats["ci95_low"] * 100, stats["ci95_high"] * 100],
@@ -111,7 +126,10 @@ def main() -> int:
             linestyles=["-", ":", ":"], linewidths=[1.6, 1.0, 1.0], alpha=0.9,
         )
         ax.annotate(
-            f"mean {stats['mean'] * 100:.1f}% (95% CI {stats['ci95_low'] * 100:.1f}-{stats['ci95_high'] * 100:.1f}%)",
+            (
+                f"mean {stats['mean'] * 100:.1f}% "
+                f"(95% CI {stats['ci95_low'] * 100:.1f}-{stats['ci95_high'] * 100:.1f}%)"
+            ),
             xy=(dates.min(), stats["mean"] * 100), xytext=(6, 4), textcoords="offset points",
             fontsize=9, color=color,
         )
