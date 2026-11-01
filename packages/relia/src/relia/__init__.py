@@ -7,13 +7,15 @@ evidence contracts that make generated claims machine-verifiable.
 
 Status: M2 service layer implemented: configuration/data-path utilities
 (``relia.config``), evidence contracts (``relia.contracts``), the provider
-abstraction plus the OpenAI-compatible adapter and scripted test double
-(``relia.providers``), record/replay cassettes (``relia.replay``), the
-versioned prompt registry (``relia.prompts``), deterministic evaluation
-(``relia.evaluations``) and the ``relia`` CLI (``relia eval run/compare``).
-LLM-as-judge scoring, retrieval evaluation, regression bisection and the
-tracing exporter are designed but not implemented — see
-``docs/architecture/relia.md`` and ``docs/decisions/``.
+abstraction with two wire protocols — OpenAI-compatible and Anthropic
+Messages API — plus named presets (``claude`` / ``grok`` / ``custom`` /
+``openai-compatible``) and the scripted test double (``relia.providers``),
+record/replay cassettes (``relia.replay``), the versioned prompt registry
+(``relia.prompts``), deterministic evaluation (``relia.evaluations``) and
+the ``relia`` CLI (``relia eval run/compare``). LLM-as-judge scoring,
+retrieval evaluation, regression bisection and the tracing exporter are
+designed but not implemented — see ``docs/architecture/relia.md`` and
+``docs/decisions/``.
 """
 
 __all__ = ["__version__"]

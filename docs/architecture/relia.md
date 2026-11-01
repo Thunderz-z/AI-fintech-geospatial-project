@@ -19,7 +19,10 @@ grows when the applications expose real engineering requirements (ADR-0005).
 | `relia.config.paths` | **implemented** | `PORTFOLIO_DATA_ROOT` resolution (.env fallback), validation, writability probe, project dirs, diagnostics; public `read_dotenv()` |
 | `relia.contracts.evidence` | **implemented** | `EvidenceContract`, `EvidenceRef`, `MethodologyInfo`, `AbstentionInfo`, versioned schema |
 | `relia.providers.base` | **implemented (interfaces)** | `LLMProvider` protocol, `CompletionRequest/Response` (with `cost_usd`), `Usage`, error hierarchy |
-| `relia.providers.openai_compat` | **implemented** | First adapter: OpenAI-compatible chat completions with per-attempt timeouts, deterministic exponential backoff (retry on 408/429/5xx/transport, never on 4xx/malformed output), `UsageLedger` cost accounting, client-side `jsonschema` structured-output validation, `ProviderConfig.from_env()` (`RELIA_LLM_*`, .env fallback, `SecretStr` key) |
+| `relia.providers.openai_compat` | **implemented** | OpenAI chat-completions wire protocol (OpenAI, Grok/xAI, Azure, Groq, DeepSeek, vLLM, ...) with per-attempt timeouts, deterministic exponential backoff (retry on 408/429/5xx/transport, never on 4xx/malformed output), client-side `jsonschema` structured-output validation |
+| `relia.providers.anthropic` | **implemented** | Anthropic Messages API (Claude): `x-api-key` + version headers, `system` extraction, mandatory `max_tokens` resolution (request → config → 1024), 529-overloaded retryable, instruction-based structured outputs validated client-side (the API has no `response_format`; a violating answer fails loudly) |
+| `relia.providers.presets` | **implemented** | `create_provider()` over named presets — `claude` (RELIA_ANTHROPIC_), `grok` (RELIA_GROK_, xAI speaks the OpenAI wire format), `custom` (RELIA_CUSTOM_, `BASE_URL` required), `openai-compatible` (RELIA_LLM_) — per-vendor env prefixes so vendors coexist in one `.env` |
+| `relia.providers.config` / `_http_base` | **implemented** | Shared `ProviderConfig` (per-prefix `from_env`, `SecretStr` key, price sheet), `UsageLedger` cost accounting and the retry/timeout/ledger HTTP base both wire protocols build on |
 | `relia.providers.fake` | **implemented** | `ScriptedProvider` test double (network-free; explicitly a fake, not a stub) |
 | `relia.replay.cassette` | **implemented** | `RecordingProvider` / `ReplayProvider` behind the provider interface; strict request equality, `ReplayMismatchError` on divergence/exhaustion/corruption, `verify_complete()`, JSON save/load |
 | `relia.prompts.registry` | **implemented** | `PromptTemplate` (`$variable`, JSON-brace-safe), `PromptRegistry` with numeric-aware latest-version lookup, strict rendering, TOML loading (stdlib `tomllib`) |
@@ -34,9 +37,9 @@ grows when the applications expose real engineering requirements (ADR-0005).
 
 ## Remaining planned components (when applications need them)
 
-1. **Fallback chains + real-key soak test** — the OpenAI-compatible adapter runs its full
-   test coverage against mock transports; first live run waits for the owner's API key in
-   the worktree `.env` (`RELIA_LLM_*`).
+1. **Fallback chains + real-key soak test** — both adapters run their full test coverage
+   against mock transports; the first live runs wait for the owner's API keys in the
+   worktree `.env` (`RELIA_ANTHROPIC_*` / `RELIA_GROK_*` / `RELIA_CUSTOM_*` / `RELIA_LLM_*`).
 2. **LLM-as-judge runner** — separated from the deterministic runner by design; never mixed
    into deterministic metrics.
 3. **Retrieval evaluation + groundedness** — retrieval metrics and evidence-validation checks
@@ -50,18 +53,20 @@ grows when the applications expose real engineering requirements (ADR-0005).
 
 ## Testing strategy
 
-All tests run network-free and key-free: the adapter is exercised through
+All tests run network-free and key-free: both adapters are exercised through
 `httpx.MockTransport` with an injected sleep recorder (retry schedules asserted exactly), the
 replay layer through recorded cassettes, and the CLI through scripted/cassette answer
 sources. Covered: data-root resolution and failure modes, evidence-contract invariants,
-interface schema validation and error hierarchy, adapter wire format/auth/timeouts/retries/
-backoff caps/error mapping/usage integrity/cost accounting, structured-output validation
-(invalid JSON, schema violation, invalid schema, non-object), scripted provider behaviour,
-cassette record/save/load/replay/mismatch/exhaustion, prompt registry (version ordering,
-duplicate detection, strict render, TOML loading), deterministic checks, runner aggregation
-and per-case error semantics, dataset loading, and the full `eval run`/`eval compare` CLI
-surface including `--fail-under` gating. Planned: live-endpoint conformance once a key
-exists, LLM-as-judge tests, regression bisection tests.
+interface schema validation and error hierarchy, both adapters' wire
+format/auth/headers/timeouts/retries/backoff caps/error mapping/usage integrity/cost
+accounting, structured-output validation (invalid JSON, schema violation, invalid schema,
+non-object), Anthropic-specific behaviour (system extraction, `max_tokens` resolution,
+529 retry, tool-role rejection), preset catalogue/env isolation/base-URL overrides, scripted
+provider behaviour, cassette record/save/load/replay/mismatch/exhaustion, prompt registry
+(version ordering, duplicate detection, strict render, TOML loading), deterministic checks,
+runner aggregation and per-case error semantics, dataset loading, and the full
+`eval run`/`eval compare` CLI surface including `--fail-under` gating. Planned:
+live-endpoint conformance once keys exist, LLM-as-judge tests, regression bisection tests.
 
 ## What RELIA deliberately does not do
 
