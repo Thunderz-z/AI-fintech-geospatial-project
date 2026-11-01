@@ -4,8 +4,10 @@ Implemented commands:
 
 * ``check-data-root`` — data-root diagnostics.
 * ``eval run`` — deterministic evaluation of a dataset against a scripted
-  provider, a recorded cassette (network-free) or an OpenAI-compatible
-  endpoint configured via ``RELIA_LLM_*``; writes :class:`EvalResult` JSON.
+  provider, a recorded cassette (network-free) or a real provider preset
+  (``openai-compatible``, ``claude``, ``grok``, ``custom`` — each configured
+  via its own ``RELIA_*`` variables, keys in the local ``.env`` only);
+  writes :class:`EvalResult` JSON.
 * ``eval compare`` — point-delta comparison of two eval-result files.
 
 Regression bisection and LLM-as-judge evaluation are planned; see
@@ -41,10 +43,9 @@ from relia.prompts import PromptRegistry, PromptRegistryError, PromptRenderError
 from relia.providers import (
     CompletionRequest,
     Message,
-    OpenAICompatibleProvider,
-    ProviderConfig,
     ProviderError,
     ScriptedProvider,
+    create_provider,
     scripted_response,
 )
 from relia.replay import ReplayProvider, load_cassette
@@ -135,24 +136,25 @@ def _build_answer_source(args: argparse.Namespace, dataset_cases: int):
         )
         return provider, args.model or "scripted-model", None
 
-    if args.answer_source == "openai-compatible":
-        try:
-            config = ProviderConfig.from_env()
-        except ProviderError as exc:
-            raise _CliEvalError(str(exc)) from exc
-        model = args.model or config.default_model
-        if not model:
-            raise _CliEvalError(
-                "No model for the real provider: pass --model or set "
-                "RELIA_LLM_DEFAULT_MODEL."
-            )
-        provider = OpenAICompatibleProvider(config)
-        return provider, model, provider.aclose()
+    if args.answer_source is None:
+        raise _CliEvalError(
+            "No answer source configured: pass --answer-source "
+            "{scripted,openai-compatible,claude,grok,custom} or --cassette PATH."
+        )
 
-    raise _CliEvalError(
-        "No answer source configured: pass --answer-source "
-        "{scripted,openai-compatible} or --cassette PATH."
-    )
+    # Real provider presets: openai-compatible, claude, grok, custom.
+    try:
+        provider = create_provider(args.answer_source)
+    except ProviderError as exc:
+        raise _CliEvalError(str(exc)) from exc
+    model = args.model or provider.config.default_model
+    if not model:
+        raise _CliEvalError(
+            f"No model for provider {args.answer_source!r}: pass --model or "
+            "set its DEFAULT_MODEL variable (e.g. RELIA_GROK_DEFAULT_MODEL "
+            "for grok, RELIA_ANTHROPIC_DEFAULT_MODEL for claude)."
+        )
+    return provider, model, provider.aclose
 
 
 async def _run_eval(
@@ -200,7 +202,7 @@ async def _run_eval(
         )
     finally:
         if close is not None:
-            await close
+            await close()
 
     ledger = getattr(provider, "ledger", None)
     if ledger is not None and ledger.completions:
@@ -338,8 +340,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     run_parser.add_argument(
         "--answer-source",
-        choices=("scripted", "openai-compatible"),
-        help="Where answers come from; --cassette is the network-free alternative",
+        choices=("scripted", "openai-compatible", "claude", "grok", "custom"),
+        help=(
+            "Where answers come from: 'scripted' (constant, network-free), "
+            "or a provider preset (claude/grok/custom/openai-compatible; "
+            "configured via RELIA_* variables in .env). --cassette is the "
+            "network-free replay alternative"
+        ),
     )
     run_parser.add_argument(
         "--scripted-response",

@@ -223,6 +223,69 @@ def test_eval_run_openai_compatible_without_key_fails_cleanly(
     assert "RELIA_LLM_API_KEY" in err
 
 
+@pytest.mark.parametrize(
+    ("source", "missing_var"),
+    [
+        ("claude", "RELIA_ANTHROPIC_API_KEY"),
+        ("grok", "RELIA_GROK_API_KEY"),
+    ],
+)
+def test_eval_run_real_presets_fail_cleanly_without_key(
+    eval_files, capsys, tmp_path, monkeypatch, source, missing_var
+) -> None:
+    monkeypatch.chdir(tmp_path)  # no repo .env fallback
+    for var in (
+        "RELIA_LLM_API_KEY",
+        "RELIA_ANTHROPIC_API_KEY",
+        "RELIA_GROK_API_KEY",
+        "RELIA_CUSTOM_API_KEY",
+    ):
+        monkeypatch.delenv(var, raising=False)
+    dataset, _, out = eval_files
+
+    code, _, err = _run(
+        [
+            "eval",
+            "run",
+            "--dataset",
+            str(dataset),
+            "--answer-source",
+            source,
+            "--out-dir",
+            str(out),
+        ],
+        capsys,
+    )
+
+    assert code == 1
+    assert missing_var in err
+
+
+def test_eval_run_custom_preset_requires_base_url(
+    eval_files, capsys, tmp_path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RELIA_CUSTOM_API_KEY", "custom-x")  # key set, URL missing
+    dataset, _, out = eval_files
+
+    code, _, err = _run(
+        [
+            "eval",
+            "run",
+            "--dataset",
+            str(dataset),
+            "--answer-source",
+            "custom",
+            "--out-dir",
+            str(out),
+        ],
+        capsys,
+    )
+
+    assert code == 1
+    assert "RELIA_CUSTOM_BASE_URL" in err
+
+
 def record_cli_cassette(path, *, requests: list[str], responses: list[str]) -> None:
     """Record requests with rendered-prompt content, responses = expected answers."""
     inner = ScriptedProvider.text(*responses)
