@@ -1,9 +1,9 @@
 """Provider abstraction for LLM access.
 
-Defines the core protocol and transport-agnostic DTOs. Concrete provider
-adapters (hosted LLM APIs) are planned — see ``docs/architecture/relia.md``.
-The protocol is intentionally small: chat-style completion with optional
-structured-output schema, explicit timeouts and usage accounting.
+Core protocol and transport-agnostic DTOs live in ``relia.providers.base``
+(protected interface). Concrete implementations: the OpenAI-compatible
+adapter (:mod:`relia.providers.openai_compat`) and the scripted test double
+(:mod:`relia.providers.fake`).
 """
 
 from relia.providers.base import (
@@ -18,6 +18,12 @@ from relia.providers.base import (
     ReliaError,
     Usage,
 )
+from relia.providers.fake import ScriptedProvider, scripted_response
+from relia.providers.openai_compat import (
+    OpenAICompatibleProvider,
+    ProviderConfig,
+    UsageLedger,
+)
 
 __all__ = [
     "CompletionRequest",
@@ -25,9 +31,14 @@ __all__ = [
     "LLMProvider",
     "MalformedStructuredOutputError",
     "Message",
+    "OpenAICompatibleProvider",
+    "ProviderConfig",
     "ProviderError",
     "ProviderRateLimitError",
     "ProviderTimeoutError",
     "ReliaError",
+    "ScriptedProvider",
     "Usage",
+    "UsageLedger",
+    "scripted_response",
 ]

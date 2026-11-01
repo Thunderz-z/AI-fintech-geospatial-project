@@ -32,6 +32,7 @@ __all__ = [
     "check_data_root",
     "find_repo_root",
     "get_data_root",
+    "read_dotenv",
     "resolve_project_data_dir",
 ]
 
@@ -68,6 +69,17 @@ def _read_dotenv(path: Path) -> dict[str, str]:
         if key:
             values[key] = value
     return values
+
+
+def read_dotenv(path: Path) -> dict[str, str]:
+    """Public access to the minimal ``.env`` parser.
+
+    Added additively so other RELIA configuration surfaces (e.g. provider
+    credentials via ``RELIA_LLM_*``) can fall back to the repository's local
+    ``.env`` without duplicating the parsing rules. Behaviour is identical to
+    the internal parser used for the data root.
+    """
+    return _read_dotenv(path)
 
 
 def _configured_value(start: Path | None) -> tuple[str, str]:
