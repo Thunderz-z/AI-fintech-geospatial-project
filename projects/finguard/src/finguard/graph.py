@@ -30,6 +30,8 @@ __all__ = [
     "detect_cycle",
     "detect_fan_in",
     "detect_fan_out",
+    "detect_rapid_movement",
+    "detect_scatter_gather",
     "detect_structuring",
 ]
 
@@ -455,4 +457,195 @@ def detect_structuring(
         )
 
     alerts.sort(key=lambda a: -a.score["transfers"])
+    return alerts
+
+
+def detect_scatter_gather(
+    tx: pd.DataFrame,
+    *,
+    min_sources: int = 4,
+    min_sinks: int = 4,
+    window: pd.Timedelta | None = None,
+    redistribution_window: pd.Timedelta | None = None,
+) -> list[MotifAlert]:
+    """Detect scatter-gather: many sources converge on a hub within a window
+    and the hub redistributes to many sinks inside an extended window.
+
+    Args:
+        tx: Canonical transactions.
+        min_sources: Distinct senders into the hub required.
+        min_sinks: Distinct receivers from the hub required.
+        window: Convergence burst window (default 7 days).
+        redistribution_window: Extra time after the incoming burst end in
+            which the outgoing burst must fit (default 3 days).
+
+    Returns:
+        One alert per qualifying hub, strongest (most distinct sources) first.
+        A suspicious pattern — never a laundering finding (module docstring).
+    """
+    window = window if window is not None else pd.Timedelta(days=7)
+    redistribution_window = (
+        redistribution_window if redistribution_window is not None else pd.Timedelta(days=3)
+    )
+    edges = tx[
+        ["tx_id", "timestamp", "from_account", "to_account", "amount_received", "amount_paid"]
+    ]
+    in_distinct = edges.groupby("to_account", observed=True)["from_account"].transform("nunique")
+    candidates = edges.loc[in_distinct >= min_sources]
+
+    alerts: list[MotifAlert] = []
+    for hub, hub_edges in candidates.groupby("to_account", observed=True, sort=False):
+        hub_edges = hub_edges.sort_values("timestamp", kind="mergesort")
+        incoming = _best_window_burst(
+            hub_edges["timestamp"].to_numpy(),
+            hub_edges["from_account"].to_numpy(),
+            hub_edges["tx_id"].to_numpy(),
+            min_sources,
+            window,
+        )
+        if incoming is None:
+            continue
+        outgoing = edges.loc[
+            (edges["from_account"] == hub)
+            & (edges["timestamp"] >= incoming["start"])
+            & (edges["timestamp"] <= incoming["end"] + redistribution_window)
+        ].sort_values("timestamp", kind="mergesort")
+        if outgoing["to_account"].nunique() < min_sinks:
+            continue
+        out_burst = _best_window_burst(
+            outgoing["timestamp"].to_numpy(),
+            outgoing["to_account"].to_numpy(),
+            outgoing["tx_id"].to_numpy(),
+            min_sinks,
+            redistribution_window,
+        )
+        if out_burst is None:
+            continue
+        total_in = float(
+            edges.loc[edges["tx_id"].isin(incoming["tx_ids"]), "amount_received"].sum()
+        )
+        total_out = float(
+            edges.loc[edges["tx_id"].isin(out_burst["tx_ids"]), "amount_paid"].sum()
+        )
+        alerts.append(
+            MotifAlert(
+                typology="scatter_gather",
+                account=str(hub),
+                counter_account=None,
+                tx_ids=tuple(dict.fromkeys([*incoming["tx_ids"], *out_burst["tx_ids"]])),
+                score={
+                    "distinct_sources": incoming["distinct"],
+                    "distinct_sinks": out_burst["distinct"],
+                    "total_in": total_in,
+                    "total_out": total_out,
+                    "in_window_start": str(incoming["start"]),
+                    "in_window_end": str(incoming["end"]),
+                    "out_window_start": str(out_burst["start"]),
+                    "out_window_end": str(out_burst["end"]),
+                    "window": str(window),
+                    "redistribution_window": str(redistribution_window),
+                },
+            )
+        )
+    alerts.sort(key=lambda a: -a.score["distinct_sources"])
+    return alerts
+
+
+def detect_rapid_movement(
+    tx: pd.DataFrame,
+    *,
+    min_hops: int = 3,
+    max_hops: int = 8,
+    max_gap: pd.Timedelta | None = None,
+    min_pass_through: float = 0.5,
+    max_alerts: int = 500,
+) -> list[MotifAlert]:
+    """Detect rapid movement of funds: time-ordered chains of at least
+    ``min_hops`` transfers where each hop follows within ``max_gap`` and
+    retains at least ``min_pass_through`` of the previous hop's amount
+    (a pass-through/layering heuristic).
+
+    Pure-Python bounded DFS over per-account time-sorted edge lists —
+    intended for bounded datasets and fixtures, not the full 5M-edge frame
+    (see :func:`detect_cycle` for the vectorized alternative at scale).
+    ``max_alerts`` caps the returned chains; exceeding it is recorded in the
+    first alert's score as ``"capped": true``.
+
+    Args:
+        tx: Canonical transactions.
+        min_hops: Minimum chain length (transfers) to alert.
+        max_hops: Maximum chain length explored.
+        max_gap: Maximum time between consecutive hops (default 6 h).
+        min_pass_through: Minimum amount ratio hop-to-hop.
+        max_alerts: Hard cap on returned alerts (runtime guard).
+
+    Returns:
+        Chains strongest (largest start amount) first.
+    """
+    max_gap = max_gap if max_gap is not None else pd.Timedelta(hours=6)
+    edges = tx[["tx_id", "timestamp", "from_account", "to_account", "amount_paid"]].sort_values(
+        "timestamp", kind="mergesort"
+    )
+    times = edges["timestamp"].to_numpy()
+    amounts = edges["amount_paid"].to_numpy(dtype=float)
+    tx_ids = edges["tx_id"].to_numpy()
+    senders = edges["from_account"].to_numpy()
+    receivers = edges["to_account"].to_numpy()
+
+    by_sender: dict[str, list[int]] = {}
+    for index, account in enumerate(senders):
+        by_sender.setdefault(account, []).append(index)
+
+    alerts: list[MotifAlert] = []
+    seen: set[frozenset[int]] = set()
+    capped = False
+    for start in range(len(edges)):
+        if capped:
+            break
+        # Iterative DFS: (last_edge_index, amount_available, path).
+        stack: list[tuple[int, float, list[int]]] = [(start, amounts[start], [start])]
+        while stack:
+            last, available, path = stack.pop()
+            if len(path) >= min_hops:
+                key = frozenset(int(tx_ids[i]) for i in path)
+                if key not in seen:
+                    seen.add(key)
+                    alerts.append(
+                        MotifAlert(
+                            typology="rapid_movement",
+                            account=str(senders[path[0]]),
+                            counter_account=str(receivers[path[-1]]),
+                            tx_ids=tuple(int(tx_ids[i]) for i in path),
+                            score={
+                                "hops": len(path),
+                                "start_amount": float(amounts[path[0]]),
+                                "end_amount": float(amounts[path[-1]]),
+                                "chain_start": str(times[path[0]]),
+                                "chain_end": str(times[path[-1]]),
+                                "max_gap": str(max_gap),
+                                "min_pass_through": min_pass_through,
+                                **({"capped": True} if capped else {}),
+                            },
+                        )
+                    )
+                    if len(alerts) >= max_alerts:
+                        capped = True
+                        break
+            if len(path) >= max_hops or capped:
+                continue
+            following = by_sender.get(receivers[last], [])
+            for nxt in following:
+                nxt_time = times[nxt]
+                if nxt_time <= times[last] or (nxt_time - times[last]) > max_gap:
+                    continue
+                if amounts[nxt] < min_pass_through * available:
+                    continue
+                stack.append((nxt, amounts[nxt], [*path, nxt]))
+
+    alerts.sort(key=lambda a: -a.score["start_amount"])
+    if capped:
+        # The cap engaged: mark every emitted alert so consumers know the
+        # list is a bounded sample, not the full population.
+        for alert in alerts:
+            alert.score["capped"] = True
     return alerts
