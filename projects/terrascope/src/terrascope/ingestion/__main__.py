@@ -57,6 +57,7 @@ def _build_parser() -> argparse.ArgumentParser:
     for name, help_text in (
         ("download", "STAC search + AOI windowed reads into raw/ (needs --approve)"),
         ("composite", "seasonal median composites from cached windows"),
+        ("water", "offline: water-extent series + evidence contract (no composites)"),
         ("analyse", "offline: composites + indices + water-extent series + evidence contract"),
     ):
         cmd = sub.add_parser(name, help=help_text)
@@ -73,7 +74,7 @@ def _build_parser() -> argparse.ArgumentParser:
                 action="store_true",
                 help="explicitly approve the network retrieval (required)",
             )
-        if name == "analyse":
+        if name in ("analyse", "water"):
             cmd.add_argument(
                 "--boundary",
                 type=str,
@@ -156,38 +157,32 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  wrote {path}")
         return 0
 
+    # water
+    if args.command == "water":
+        return _run_water(args, root_path)
+
     # analyse
     return _run_analyse(args, root_path)
 
 
-def _run_analyse(args: argparse.Namespace, root_path: Path | None) -> int:
-    """Offline full analysis: composites -> indices -> water series -> contract."""
+def _run_water(args: argparse.Namespace, root_path: Path | None) -> int:
+    """Offline water-extent series + evidence contract (no composites needed)."""
     from terrascope.config import data_dir
     from terrascope.evidence.water import water_extent_contract, write_contract
-    from terrascope.features.indices import build_season_indices
     from terrascope.features.water_extent import (
         DEFAULT_MNDWI_WATER_THRESHOLD,
         water_extent_time_series,
         write_water_extent_report,
     )
 
-    aoi = approximate_pallikaranai_aoi()
     root = root_path if root_path is not None else data_dir()
-    composite_report = run_composite(aoi, start=args.start, end=args.end, root=root)
-
-    season_dirs = sorted({path.parent for path in composite_report.provenance})
-    for season_dir in season_dirs:
-        index_paths = build_season_indices(season_dir)
-        names = ", ".join(sorted(path.name for path in index_paths.values()))
-        print(f"  indices[{season_dir.name}]: {names}")
-
     boundary = (
         Path(args.boundary)
         if args.boundary
         else root / "raw" / "boundaries" / "ramsar_in2481.geojson"
     )
     if not boundary.is_file():
-        print(f"boundary file missing: {boundary} — water-extent step skipped")
+        print(f"boundary file missing: {boundary}")
         return 1
 
     observations = water_extent_time_series(
@@ -226,6 +221,24 @@ def _run_analyse(args: argparse.Namespace, root_path: Path | None) -> int:
     print(f"  evidence contract: {contract_path} ({contract.validation_status.value})")
     print(f"  claim: {contract.claim_text}")
     return 0
+
+
+def _run_analyse(args: argparse.Namespace, root_path: Path | None) -> int:
+    """Offline full analysis: composites -> indices -> water series -> contract."""
+    from terrascope.config import data_dir
+    from terrascope.features.indices import build_season_indices
+
+    aoi = approximate_pallikaranai_aoi()
+    root = root_path if root_path is not None else data_dir()
+    composite_report = run_composite(aoi, start=args.start, end=args.end, root=root)
+
+    season_dirs = sorted({path.parent for path in composite_report.provenance})
+    for season_dir in season_dirs:
+        index_paths = build_season_indices(season_dir)
+        names = ", ".join(sorted(path.name for path in index_paths.values()))
+        print(f"  indices[{season_dir.name}]: {names}")
+
+    return _run_water(args, root_path)
 
 
 if __name__ == "__main__":

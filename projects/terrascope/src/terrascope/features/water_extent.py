@@ -30,7 +30,7 @@ from rasterio.features import rasterize
 
 from terrascope.config import data_dir
 from terrascope.features.indices import mndwi
-from terrascope.ingestion.aoi import approximate_pallikaranai_aoi
+from terrascope.ingestion.aoi import StudyAOI, approximate_pallikaranai_aoi
 from terrascope.ingestion.cog_reader import CompositeGrid, read_band_onto_grid, read_scl_onto_grid
 from terrascope.ingestion.gate import DownloadGate
 from terrascope.ingestion.masking import SCL_EXCLUDE_DEFAULT, scl_valid_mask
@@ -162,16 +162,19 @@ def water_extent_time_series(
     root: Path | None = None,
     threshold: float = DEFAULT_MNDWI_WATER_THRESHOLD,
     min_valid_fraction: float = 0.80,
+    aoi: StudyAOI | None = None,
 ) -> list[WaterExtentObservation]:
     """Water-extent observations for every cached scene date in the window.
 
     Scenes are deduplicated per sensing datetime (latest processing baseline
-    wins — see ``terrascope.ingestion.pipeline.iter_cached_scenes``).
+    wins — see ``terrascope.ingestion.pipeline.iter_cached_scenes``). The grid
+    derives from *aoi* (default: the documented approximate Pallikaranai bbox)
+    and must match the grid the scenes were downloaded with.
     """
     config = config or IngestionConfig()
     root = root or data_dir()
     grid10 = CompositeGrid.from_aoi(
-        approximate_pallikaranai_aoi(),
+        aoi or approximate_pallikaranai_aoi(),
         resolution_m=config.grid_resolution_m,
         epsg=config.grid_crs_epsg,
     )

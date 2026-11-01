@@ -41,6 +41,7 @@ def fake_search_factory(tmp_path: Path) -> Callable[..., Callable[..., list[Scen
                 scene_dir,
                 scl_classes=spec.get("scl_classes"),
                 band_values=spec.get("band_values"),
+                band_patches=spec.get("band_patches"),
                 grid_offset_m=spec.get("offset_m", 0.0),
             )
             item = make_stac_item(

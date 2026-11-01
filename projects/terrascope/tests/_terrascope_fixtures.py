@@ -78,14 +78,20 @@ def make_scene_fixture(
     *,
     scl_classes: list[tuple[int, int, int]] | None = None,
     band_values: dict[str, float] | None = None,
+    band_patches: dict[str, tuple[int, int, int, int, float]] | None = None,
     grid_offset_m: float = 0.0,
 ) -> dict[str, str]:
     """Write one synthetic scene (6 bands + SCL) and return band -> file URI.
 
     ``grid_offset_m`` shifts the raster origin so grid-alignment code paths
     are exercised (a half-pixel offset mimics scene-to-scene drift).
+    ``band_patches`` overrides a constant band inside one rectangle:
+    ``{band: (row, col, height_px, width_px, value)}`` in the band's own
+    resolution — used to plant e.g. a dark-SWIR water block aligned to the
+    20 m grid (rows/cols must be multiples of 2 for 10 m bands).
     """
     band_values = band_values or {}
+    band_patches = band_patches or {}
     offset = Affine(1, 0, grid_offset_m, 0, 1, -grid_offset_m)
     hrefs: dict[str, str] = {}
 
@@ -102,6 +108,9 @@ def make_scene_fixture(
     ):
         value = band_values.get(band, BAND_BASE_VALUES[band])
         array = np.full((dims, dims), value, dtype=np.uint16)
+        if band in band_patches:
+            row, col, height_px, width_px, patch_value = band_patches[band]
+            array[row : row + height_px, col : col + width_px] = np.uint16(patch_value)
         hrefs[band] = write_band(scene_dir / f"{band}.tif", array, transform @ offset).as_uri()
     return hrefs
 
