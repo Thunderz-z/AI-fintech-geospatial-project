@@ -1,0 +1,30 @@
+# Local/demo composition for both services.
+#
+# The owner develops WITHOUT Docker Desktop (see ADR-0007): this file exists
+# for CI builds and anyone deploying. Datasets stay external — the data root
+# is mounted read-only; nothing is baked into images.
+
+services:
+  terrascope:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/terrascope.Dockerfile
+    ports:
+      - "8801:8000"
+    volumes:
+      # Read-only: the API is a read-only surface over analysis artefacts.
+      - ${PORTFOLIO_DATA_ROOT:-/data}:/data:ro
+    environment:
+      PORTFOLIO_DATA_ROOT: /data
+
+  finguard:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/finguard.Dockerfile
+    ports:
+      - "8802:8000"
+    volumes:
+      # Read-write: the investigation queue persists under <root>/finguard/processed.
+      - ${PORTFOLIO_DATA_ROOT:-/data}:/data
+    environment:
+      PORTFOLIO_DATA_ROOT: /data

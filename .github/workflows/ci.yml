@@ -24,3 +24,13 @@ jobs:
 
       - name: Test
         run: uv run pytest
+
+  docker:
+    # The owner develops without Docker Desktop; CI verifies the images build.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build terrascope image
+        run: docker build -f infrastructure/docker/terrascope.Dockerfile -t terrascope:ci .
+      - name: Build finguard image
+        run: docker build -f infrastructure/docker/finguard.Dockerfile -t finguard:ci .
