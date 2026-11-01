@@ -1,7 +1,9 @@
 # TerraScope Dataset Research
 
-Status: research complete for prioritization; **nothing downloaded yet**. Sizes marked
-*(approx.)* require verification at acquisition time. Machine-readable manifest:
+Status: research complete; **first approved acquisitions done (2026-11-01)** — Ramsar boundary
+polygon + 14 Sentinel-2 L2A scenes (2023-10 → 2024-03), 261 MB total (see manifest for checksums
+and derived products). Sizes marked *(approx.)* require verification at acquisition time.
+Machine-readable manifest:
 [`data/manifests/terrascope-manifest.yaml`](../../data/manifests/terrascope-manifest.yaml).
 
 Study area: **Pallikaranai Marsh, Chennai, Tamil Nadu, India** — approx. bbox

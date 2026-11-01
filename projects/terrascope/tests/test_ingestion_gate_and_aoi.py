@@ -15,7 +15,7 @@ from terrascope.ingestion.aoi import (
     load_boundary_geojson,
 )
 from terrascope.ingestion.gate import DownloadGate, DownloadNotApprovedError, is_remote_uri
-from terrascope.ingestion.pipeline import _scene_date_from_id
+from terrascope.ingestion.pipeline import scene_date_from_id
 
 
 class TestGate:
@@ -92,7 +92,7 @@ class TestBoundaryLoader:
 class TestSceneDateFromId:
     def test_sentinel2_scene_id(self) -> None:
         scene_id = "S2B_MSIL2A_20240115T050229_N0510_R028_T44QPH_20240115T081234"
-        assert _scene_date_from_id(scene_id) == dt.date(2024, 1, 15)
+        assert scene_date_from_id(scene_id) == dt.date(2024, 1, 15)
 
     def test_unparseable_id(self) -> None:
-        assert _scene_date_from_id("not-a-scene-id") is None
+        assert scene_date_from_id("not-a-scene-id") is None

@@ -57,6 +57,7 @@ def _build_parser() -> argparse.ArgumentParser:
     for name, help_text in (
         ("download", "STAC search + AOI windowed reads into raw/ (needs --approve)"),
         ("composite", "seasonal median composites from cached windows"),
+        ("analyse", "offline: composites + indices + water-extent series + evidence contract"),
     ):
         cmd = sub.add_parser(name, help=help_text)
         cmd.add_argument(
@@ -71,6 +72,13 @@ def _build_parser() -> argparse.ArgumentParser:
                 "--approve",
                 action="store_true",
                 help="explicitly approve the network retrieval (required)",
+            )
+        if name == "analyse":
+            cmd.add_argument(
+                "--boundary",
+                type=str,
+                default=None,
+                help="authoritative boundary GeoJSON (default: Ramsar IN2481 on the data root)",
             )
     return parser
 
@@ -138,13 +146,85 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     # composite
-    report = run_composite(aoi, start=args.start, end=args.end, root=root_path)
-    print(f"scenes used: {len(report.scenes_used)}")
-    for season, count in report.season_scene_counts.items():
-        max_obs = report.valid_obs_max[season]
-        print(f"  {season}: {count} scene(s), max valid obs per pixel: {max_obs}")
-    for path in report.composites:
-        print(f"  wrote {path}")
+    if args.command == "composite":
+        report = run_composite(aoi, start=args.start, end=args.end, root=root_path)
+        print(f"scenes used: {len(report.scenes_used)}")
+        for season, count in report.season_scene_counts.items():
+            max_obs = report.valid_obs_max[season]
+            print(f"  {season}: {count} scene(s), max valid obs per pixel: {max_obs}")
+        for path in report.composites:
+            print(f"  wrote {path}")
+        return 0
+
+    # analyse
+    return _run_analyse(args, root_path)
+
+
+def _run_analyse(args: argparse.Namespace, root_path: Path | None) -> int:
+    """Offline full analysis: composites -> indices -> water series -> contract."""
+    from terrascope.config import data_dir
+    from terrascope.evidence.water import water_extent_contract, write_contract
+    from terrascope.features.indices import build_season_indices
+    from terrascope.features.water_extent import (
+        DEFAULT_MNDWI_WATER_THRESHOLD,
+        water_extent_time_series,
+        write_water_extent_report,
+    )
+
+    aoi = approximate_pallikaranai_aoi()
+    root = root_path if root_path is not None else data_dir()
+    composite_report = run_composite(aoi, start=args.start, end=args.end, root=root)
+
+    season_dirs = sorted({path.parent for path in composite_report.provenance})
+    for season_dir in season_dirs:
+        index_paths = build_season_indices(season_dir)
+        names = ", ".join(sorted(path.name for path in index_paths.values()))
+        print(f"  indices[{season_dir.name}]: {names}")
+
+    boundary = (
+        Path(args.boundary)
+        if args.boundary
+        else root / "raw" / "boundaries" / "ramsar_in2481.geojson"
+    )
+    if not boundary.is_file():
+        print(f"boundary file missing: {boundary} — water-extent step skipped")
+        return 1
+
+    observations = water_extent_time_series(
+        start=args.start,
+        end=args.end,
+        boundary_geojson=boundary,
+        root=root,
+    )
+    out_dir = root / "processed" / "water-extent"
+    report_path = write_water_extent_report(
+        observations, out_dir / f"water_extent_{args.start}_{args.end}.json"
+    )
+    print(f"  water-extent report: {report_path}")
+    for obs in observations:
+        if obs.abstained:
+            print(f"  {obs.sensing_date}: ABSTAINED ({obs.valid_fraction:.0%} valid)")
+        else:
+            aoi_pct = obs.water_fraction_aoi * 100
+            ramsar_pct = (obs.water_fraction_ramsar or 0) * 100
+            print(
+                f"  {obs.sensing_date}: water {aoi_pct:5.1f}% of AOI | "
+                f"{ramsar_pct:5.1f}% of Ramsar | {obs.valid_fraction:.0%} valid"
+            )
+
+    contract = water_extent_contract(
+        observations,
+        start=args.start,
+        end=args.end,
+        report_path=report_path,
+        threshold=DEFAULT_MNDWI_WATER_THRESHOLD,
+        min_valid_fraction=0.80,
+    )
+    contract_path = write_contract(
+        contract, out_dir / f"water_extent_{args.start}_{args.end}.evidence.json"
+    )
+    print(f"  evidence contract: {contract_path} ({contract.validation_status.value})")
+    print(f"  claim: {contract.claim_text}")
     return 0
 
 

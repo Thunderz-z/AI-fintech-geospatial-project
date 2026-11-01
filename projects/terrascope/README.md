@@ -4,11 +4,12 @@ Geospatial environmental intelligence for the **Pallikaranai Marsh, Chennai** �
 ingestion, spectral-index analytics, land-cover classification, change detection and
 evidence-grounded environmental reporting.
 
-**Status: M0 ingestion implemented; first retrieval pending approval.** The ingestion module
-(STAC search → AOI-bounded windowed reads → SCL masking → seasonal median compositing) is
-implemented and tested offline; **no satellite data has been downloaded** — every network
-access is blocked by an explicit approval gate until the portfolio owner approves the first
-retrieval. Indices, classification and change detection remain planned. See:
+**Status: M0 analysis running on real data.** First approved acquisitions (2026-11-01): the
+authoritative Ramsar IN2481 boundary + 14 Sentinel-2 L2A scenes (2023-10 → 2024-03, 261 MB of
+the 10 GB budget). Implemented: gated ingestion (STAC search → windowed reads → SCL masking →
+seasonal compositing), spectral indices on composites, per-scene MNDWI water-extent series
+with valid-fraction gating and explicit abstentions, and the first evidence contract.
+Remaining: threshold calibration QA, classification, change detection, API. See:
 
 - Ingestion module: [`ingestion/README.md`](ingestion/README.md) (code: `src/terrascope/ingestion/`)
 - Architecture: [`../../docs/architecture/terrascope.md`](../../docs/architecture/terrascope.md)

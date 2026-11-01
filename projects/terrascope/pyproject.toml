@@ -5,6 +5,7 @@ description = "Geospatial environmental intelligence for the Pallikaranai Marsh,
 requires-python = ">=3.13"
 dependencies = [
     "geopandas>=1.0.1",
+    "matplotlib>=3.9",
     "numpy>=2.1.0",
     "pandas>=2.2.3",
     "planetary-computer>=1.0.0",

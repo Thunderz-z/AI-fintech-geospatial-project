@@ -1,9 +1,11 @@
 # TerraScope — Architecture
 
-Status: M0 ingestion implemented (STAC search, AOI-bounded windowed COG reads, SCL masking,
-seasonal median compositing — offline-tested on synthetic fixtures; downloads gated behind
-explicit approval, none performed yet). Indices, classification, change detection, API and
-frontend remain planned.
+Status: M0 steps 1–6 started and largely implemented on real data — ingestion (gated retrieval,
+windowed COG reads, SCL masking, seasonal compositing), features (NDVI/NDWI/MNDWI/NDBI on
+composites; per-scene MNDWI water-extent series with valid-fraction gating and abstention) and
+the first evidence contract. First acquisitions: Ramsar IN2481 boundary + 14 Sentinel-2 L2A
+scenes (2023-10 → 2024-03), 261 MB of the 10 GB budget. Remaining: index/threshold calibration
+QA, spatial block CV scaffolding, classification, change detection, API and frontend.
 
 ## Research problem
 

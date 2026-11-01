@@ -26,9 +26,10 @@ datasets:
     intended_use: "spectral indices, land-cover classification, change detection"
     known_limitations: "SCL cloud-probability confusion (no dedicated shadow class); L2A backfill varies; processing baselines differ over time"
     acquisition_date: "2026-11-01"
-    checksums: "raw/sentinel-2-l2a/acquisition_log.jsonl (sha256 per file, 77 files)"
-    acquired_sample: "11 scenes 2024-01-15..2024-03-30, tile T44PMV, eo:cloud_cover<20; 112.0 MB; windowed to composite-grid bounds (approx bbox, EPSG:32644)"
-    status: acquired-sample  # first approved retrieval; seasonal backfill follows per-step-4 QA
+    checksums: "raw/sentinel-2-l2a/acquisition_log.jsonl (sha256 per file, 98 files)"
+    acquired_sample: "14 scenes 2023-10-07..2024-03-30 (13 unique sensing dates after processing-baseline dedupe), tile T44PMV, eo:cloud_cover<20; 144 MB raw; windowed to composite-grid bounds (approx bbox, EPSG:32644)"
+    derived_products: "seasonal composites (winter/summer/monsoon-post) + NDVI/NDWI/MNDWI/NDBI + water-extent series 2023-10..2024-03 with per-date abstentions + evidence contract (processed/water-extent/)"
+    status: acquired-sample  # first approved retrievals; further backfill per step-4 QA
 
   - id: esa-worldcover-2021-v200-aoi
     name: ESA WorldCover 2021 v200 AOI subset

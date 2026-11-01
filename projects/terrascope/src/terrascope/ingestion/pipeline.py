@@ -62,8 +62,12 @@ __all__ = [
     "DownloadReport",
     "IngestionConfig",
     "CompositeReport",
+    "iter_cached_scenes",
     "run_composite",
     "run_download",
+    "scene_date_from_id",
+    "scene_processing_stamp",
+    "scene_sensing_stamp",
 ]
 
 #: Search function protocol. Called with keywords:
@@ -281,7 +285,7 @@ def _load_cached_scenes(
     for scene_dir in sorted(raw_dir.iterdir()):
         if not scene_dir.is_dir() or not _scene_complete(scene_dir, config.all_bands):
             continue
-        scene_date = _scene_date_from_id(scene_dir.name)
+        scene_date = scene_date_from_id(scene_dir.name)
         if scene_date is None:
             continue
         if start <= scene_date <= end:
@@ -289,15 +293,54 @@ def _load_cached_scenes(
     return sorted(scenes, key=lambda pair: pair[0])
 
 
-def _scene_date_from_id(scene_id: str) -> dt.date | None:
-    """Sentinel-2 scene IDs embed the acquisition date (``_YYYYMMDDTHHMMSS_``)."""
-    for part in scene_id.split("_"):
-        if len(part) == 15 and part[8] == "T" and part[:8].isdigit():
-            try:
-                return dt.datetime.strptime(part[:8], "%Y%m%d").date()
-            except ValueError:
-                continue
+def _is_stamp(part: str) -> bool:
+    return len(part) == 15 and part[8] == "T" and part[:8].isdigit() and part[9:].isdigit()
+
+
+def scene_sensing_stamp(scene_id: str) -> str:
+    """The ``YYYYMMDDTHHMMSS`` sensing timestamp (third ID segment)."""
+    parts = scene_id.split("_")
+    if len(parts) >= 3 and _is_stamp(parts[2]):
+        return parts[2]
+    return ""
+
+
+def scene_processing_stamp(scene_id: str) -> str:
+    """The trailing processing timestamp — distinguishes reprocessed baselines."""
+    parts = scene_id.split("_")
+    if parts and _is_stamp(parts[-1]):
+        return parts[-1]
+    return ""
+
+
+def scene_date_from_id(scene_id: str) -> dt.date | None:
+    """The sensing date parsed from a Sentinel-2 scene ID (None if absent)."""
+    stamp = scene_sensing_stamp(scene_id)
+    if stamp:
+        return dt.datetime.strptime(stamp[:8], "%Y%m%d").date()
     return None
+
+
+def iter_cached_scenes(
+    root: Path, *, start: dt.date, end: dt.date, config: IngestionConfig
+) -> list[tuple[dt.date, Path]]:
+    """Cached scenes in the window, deduplicated by sensing datetime.
+
+    The same acquisition can be published under several processing baselines
+    (reprocessings produce new scene IDs with the same sensing timestamp, e.g.
+    ``..._T44PMV_20240917T135946`` vs ``..._T44PMV_20231022T092540``). Stacking
+    both would double-count one date, so the **latest processing** per sensing
+    timestamp wins.
+    """
+    by_sensing: dict[str, tuple[dt.date, Path]] = {}
+    for date, scene_dir in _load_cached_scenes(root, start=start, end=end, config=config):
+        key = scene_sensing_stamp(scene_dir.name) or scene_dir.name
+        previous = by_sensing.get(key)
+        new_stamp = scene_processing_stamp(scene_dir.name)
+        previous_stamp = scene_processing_stamp(previous[1].name) if previous else ""
+        if previous is None or new_stamp >= previous_stamp:
+            by_sensing[key] = (date, scene_dir)
+    return sorted(by_sensing.values(), key=lambda pair: pair[0])
 
 
 def _write_composite_cog(
@@ -359,7 +402,7 @@ def run_composite(
         aoi, resolution_m=config.grid_resolution_m, epsg=config.grid_crs_epsg
     )
     grid20 = grid10.at_resolution(2)
-    cached = _load_cached_scenes(root, start=start, end=end, config=config)
+    cached = iter_cached_scenes(root, start=start, end=end, config=config)
     if not cached:
         msg = (
             f"No cached scenes in {start}..{end} under {_raw_dir(root)}. "
