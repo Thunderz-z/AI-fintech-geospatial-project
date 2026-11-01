@@ -33,21 +33,22 @@ datasets:
 
   - id: esa-worldcover-2021-v200-aoi
     name: ESA WorldCover 2021 v200 AOI subset
-    provider: ESA
-    source_url: "https://esa-worldcover.org/en/data-access"
+    provider: ESA (via Microsoft Planetary Computer)
+    source_url: "https://planetarycomputer.microsoft.com/dataset/esa-worldcover"
     license: CC-BY-4.0
-    spatial_coverage: "AOI subset (single 3x3 deg tile crop)"
-    temporal_coverage: "2021 (single epoch)"
+    attribution: "(c) ESA WorldCover project 2021 (CC BY 4.0)"
+    spatial_coverage: "AOI subset of tile N12E078 (3x3 deg, 12-15N 78-81E); item verified via STAC 2026-11-01: ESA_WorldCover_10m_2021_v200_N12E078"
+    temporal_coverage: "2021 (single epoch, v200)"
     resolution: "10 m"
-    format: GeoTIFF
-    expected_size: "10-50 MB (approx.)"
-    access_method: "AOI-bounded subset via WorldCover access API or Planetary Computer item asset"
-    required_preprocessing: "crop to AOI; class remap for comparison tables"
-    intended_use: "reference land-cover labels, classification sanity checks"
-    known_limitations: "single epoch; v200 vs v100 algorithm differences preclude naive year-over-year comparison"
+    format: "Cloud Optimized GeoTIFF (asset 'map', uint8 class codes)"
+    expected_size: "1-5 MB windowed AOI read (approx.; full 3x3 deg tile ~1 GB - NEVER downloaded whole)"
+    access_method: "pystac-client bbox search on MPC collection 'esa-worldcover' + planetary-computer signing + rasterio windowed read of asset 'map' clipped to the approximate-AOI composite grid"
+    required_preprocessing: "store as-acquired window; derive 20 m reference masks (fraction-of-class per cell) for calibration; class legend v200: 10 tree, 20 shrub, 30 grass, 40 crop, 50 built-up, 60 bare, 70 snow, 80 permanent water, 90 herbaceous wetland, 95 mangroves, 100 moss"
+    intended_use: "water-class reference for MNDWI threshold calibration (class 80); weak source labels for the first land-cover classification (T3)"
+    known_limitations: "single epoch (2021) vs 2024 winter composite (temporal mismatch for labels); WC 'herbaceous wetland' (90) is vegetated wetland, not open water; v200 vs v100 algorithm differences preclude naive year-over-year comparison"
     acquisition_date: null
     checksums: null
-    status: planned
+    status: planned  # VERIFIED access path 2026-11-01; download gated behind owner approval (round-2 T1)
 
   - id: osm-aoi-roads-buildings
     name: OpenStreetMap roads and buildings (AOI)
