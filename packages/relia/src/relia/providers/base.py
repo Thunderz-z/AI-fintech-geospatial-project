@@ -69,6 +69,16 @@ class CompletionResponse(BaseModel):
     provider: str
     usage: Usage
     request_id: str | None = None
+    cost_usd: float | None = Field(
+        default=None,
+        ge=0.0,
+        description=(
+            "Cost of this completion in USD at the provider's configured rates, "
+            "computed at request time; None when no price information is configured. "
+            "Frozen at request time by design: later price-sheet changes do not "
+            "rewrite historical responses."
+        ),
+    )
 
 
 @runtime_checkable

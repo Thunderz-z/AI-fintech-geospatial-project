@@ -49,6 +49,21 @@ class EvalMetric(BaseModel):
     ci_upper: float | None = None
 
 
+class CaseResult(BaseModel):
+    """One case's outcome inside an evaluation run.
+
+    Added additively so aggregate-only results stay valid. ``error`` is set
+    (and ``answer`` empty) when producing the answer for this case failed;
+    errored cases are excluded from check metrics and surfaced through the
+    run-level ``case_success_rate`` metric instead.
+    """
+
+    case_id: str = Field(min_length=1)
+    answer: str = ""
+    check_scores: dict[str, float] = Field(default_factory=dict)
+    error: str | None = None
+
+
 class EvalResult(BaseModel):
     """The outcome of one evaluation run, tied to dataset and config versions."""
 
@@ -60,5 +75,12 @@ class EvalResult(BaseModel):
         description="Prompt/configuration version under test.",
     )
     metrics: list[EvalMetric] = Field(min_length=1)
+    case_results: list[CaseResult] = Field(
+        default_factory=list,
+        description=(
+            "Per-case outcomes when the runner records them; empty for "
+            "aggregate-only results."
+        ),
+    )
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     notes: str | None = None
