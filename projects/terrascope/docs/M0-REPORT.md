@@ -155,7 +155,13 @@ uv run pytest && uv run ruff check .
 | `exports/` (QA quicklooks) | 5 MB |
 | **Total** | **~2.34 GB (23% of the 10 GB budget)** — free space on the data drive: ~213 GB |
 
-## 9. Next steps (M1 candidates)
+## 9. Next steps (M1 candidates — status after round-2 T1–T4)
+
+M1 round-2 outcomes: threshold calibrated (κ 0.45 @ 0.0, WC reference + 12 manual QA points,
+7/12 agreement), water-series **v1**, first RF classification under block CV (58.97% ± 3.22%
+vs weak labels), bootstrap seasonality (+9.1 pp, CI [4.0, 14.9]; 2021 flood cluster visible).
+See `docs/evaluations/terrascope-water-seasonality-v1.md` and
+`processed/classification/` artefacts.
 
 1. **Threshold calibration** against reference labels (ESA WorldCover 2021 water
    class as a first cross-check; manual QA polygons for marsh-specific classes).
