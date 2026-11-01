@@ -4,13 +4,16 @@ Geospatial environmental intelligence for the **Pallikaranai Marsh, Chennai** �
 ingestion, spectral-index analytics, land-cover classification, change detection and
 evidence-grounded environmental reporting.
 
-**Status: M1 running on real data.** Full Sentinel-2 record acquired (2019-04 → 2026-10,
-219 scenes, 2.34 GB of the 10 GB budget) + authoritative Ramsar IN2481 boundary + ESA
-WorldCover 2021 reference subset. Implemented: gated ingestion, compositing, spectral
-indices, water-extent series **v1** (threshold calibrated against WorldCover permanent
-water, mean κ = 0.45; QA points 7/12), random-forest classification under spatial block CV
-(58.97% ± 3.22% agreement with weak labels), and bootstrap-CI seasonality (+9.1 pp NE-monsoon
-vs dry, CI [4.0, 14.9]). Remaining: ground-truth QA, change detection, API. See:
+**Status: end-to-end on real data.** Full Sentinel-2 L2A record 2019-04 → 2026-10 acquired
+(219 scenes, 2.34 GB of the 10 GB budget) plus the **authoritative Ramsar IN2481 boundary**
+(1,246.76 ha measured vs 1,247.54 ha declared). Implemented and run: gated ingestion, SCL
+masking, seasonal composites, spectral indices, MNDWI water-extent series **v1** (threshold
+calibrated against WorldCover permanent water, mean κ = 0.45; QA points 7/12), random-forest
+classification under spatial block CV (58.97% ± 3.22% vs weak labels), bootstrap-CI seasonality
+(+9.1 pp NE-monsoon vs dry, CI [4.0, 14.9]), **epoch change detection** (winter 2019-20 vs
+2023-24: water 25.05% → 24.74%, with per-pixel uncertainty maps), and a **read-only FastAPI
+surface + MapLibre client**. Remaining: ground-truth QA points, multi-class change detection,
+RELIA-written narrative reports (awaits API keys). See:
 
 - Ingestion module: [`ingestion/README.md`](ingestion/README.md) (code: `src/terrascope/ingestion/`)
 - Architecture: [`../../docs/architecture/terrascope.md`](../../docs/architecture/terrascope.md)
@@ -21,26 +24,37 @@ vs dry, CI [4.0, 14.9]). Remaining: ground-truth QA, change detection, API. See:
 ## Layout
 
 ```
-src/terrascope/    core package: config + ingestion (STAC search, windowed reads,
-                   masking, compositing — implemented, downloads approval-gated)
-pipelines/         end-to-end pipeline orchestration (planned)
-ingestion/         README + docs pointer for the ingestion stage (implemented)
-features/          spectral indices (NDVI, NDWI, MNDWI, NDBI) (planned)
-models/            land-cover classification + spatial block CV (planned)
-evaluation/        validation, uncertainty, change-detection metrics (planned)
-evidence/          evidence-contract production for environmental claims (planned)
-api/               FastAPI surface (planned)
-frontend/          MapLibre map UI (planned)
-configs/           reproducible processing configuration (template present)
-tests/             unit + ingestion tests on synthetic fixtures (working)
+src/terrascope/
+  ingestion/       gate (approval-gated downloads) | aoi | stac_search | scenes | cog_reader
+                   | masking | composite | pipeline | __main__ (CLI: status/download/composite/water/analyse)
+  features/        indices (NDVI/NDWI/MNDWI/NDBI) | water_extent (series + abstention)
+                   | calibration (MNDWI vs WorldCover) | change (epoch transitions + uncertainty)
+  models/          classification (RF + spatial block CV) | classification_labels
+  evaluation/      spatial_cv (deterministic disjoint block folds + invariant validator)
+  evidence/        water (EvidenceContract builders)
+  api/             FastAPI read-only surface + optional static frontend mount
+frontend/          index.html (MapLibre + analysis cards + evidence viewer, no build step)
+scripts/           acquire_worldcover | calibrate_water_threshold | run_classification
+                   | run_change_detection | seasonality_analysis | water_threshold_sensitivity
+                   | render_quicklooks
+configs/           reproducible processing configuration (template)
+tests/             126 offline tests on synthetic fixtures (no network, no data root)
 ```
 
 ## Non-negotiables
 
 - Spatial block cross-validation; random pixel splits are leakage
 - Every environmental claim carries an `EvidenceContract` — or an explicit abstention
-- AOI-bounded data access only; ≤ 10 GB budget; datasets live on the external drive,
-  resolved via `PORTFOLIO_DATA_ROOT` (never the repo)
-- The authoritative boundary source is **verified** (Ramsar RSIS site IN2481, WFS polygon,
-  CC BY 4.0 — machine-readable); until it is downloaded, the explicitly labelled
-  **approximate** bbox stays the default study boundary and is never presented as legal
+- Observed change is never attributed to a cause
+- AOI-bounded data access only; ≤ 10 GB budget; datasets resolved via `PORTFOLIO_DATA_ROOT`,
+  never the repo
+- Absolute water levels are threshold-dependent — the calibrated threshold is stated everywhere
+
+## Key numbers (reproducible; artefacts on the data root)
+
+| Result | Value | Artefact |
+|---|---|---|
+| Water seasonality (2019–2026) | NE-monsoon 19.5% vs dry 10.4%; Δ +9.1 pp, CI [4.0, 14.9] | `processed/water-extent/*_v1.json`, `exports/seasonality/` |
+| Usable dates | 137 of 195 (58 abstained on the 80% gate) | water-extent series JSON |
+| Epoch change (winter) | water 25.05% → 24.74%; gained 0.94% / lost 1.24% | `processed/change-detection/` |
+| Classification (block CV) | 58.97% ± 3.22% vs weak WorldCover labels | `processed/classification/` |

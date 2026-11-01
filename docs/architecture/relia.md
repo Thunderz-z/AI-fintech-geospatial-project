@@ -32,8 +32,9 @@ grows when the applications expose real engineering requirements (ADR-0005).
 | `relia.evaluations.datasets` | **implemented** | `load_eval_dataset()` from TOML |
 | `relia.cli` | **implemented** | `check-data-root`; `eval run` (scripted / cassette / OpenAI-compatible sources, `--check`, `--fail-under`, `EvalResult` JSON to `docs/evaluations/`); `eval compare` (point deltas, `--fail-on-regression`) |
 | `relia.tracing.base` | **implemented (interface)** | `TraceRecorder` protocol; OTel exporter wiring not implemented |
-| `relia.regression` | designed | version comparison, cassette bisection, failure categorization |
-| `relia.observability` | designed | structured logging config, OTel exporter wiring |
+| `relia.tracing.memory` | **implemented** | `InMemoryTraceRecorder`: spans, events, errors, JSON export; never raises into traced code |
+| `relia.regression` | **implemented** | `bisect.py`: paired-delta bootstrap CIs over per-case outcomes, history bisection locating the first regression (CI-gated claims) |
+| `relia.observability` | **implemented (core)** | `cost.py`: `CostLedger` (token/cost accumulation; unknown-cost calls honestly poison the total to None). OTel forwarding + logging presets planned |
 
 ## Remaining planned components (when applications need them)
 

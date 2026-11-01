@@ -1,64 +1,67 @@
 # AI Engineering Portfolio — FinTech + Climate/Geospatial AI
 
 A production-oriented AI engineering portfolio built as a single monorepo with three connected
-assets that share one architectural theme: **machine-verifiable evidence**.
+assets sharing one architectural theme: **machine-verifiable evidence**. Every claim produced by
+these systems — an environmental finding, a suspicious-activity alert, an evaluation answer —
+carries its evidence, methodology, uncertainty and limitations, or the system explicitly abstains.
 
-This is not a tutorial repository or a collection of generic AI demos. Every claim produced by
-these systems — an environmental finding, a suspicious-activity narrative, an evaluation answer —
-is packaged with its underlying evidence, methodology, uncertainty and limitations, or the system
-explicitly abstains.
+## Projects and current status
 
-## Projects
-
-| Project | Purpose | Status |
+| Project | What it is | Status |
 |---|---|---|
-| **[RELIA](packages/relia/)** | Shared AI reliability infrastructure: provider abstraction, tracing, evaluation, record/replay, regression analysis, evidence contracts | Foundation implemented; adapters and runners planned |
-| **[TerraScope](projects/terrascope/)** | Geospatial environmental intelligence for the Pallikaranai Marsh, Chennai — satellite ingestion, land-cover analytics, change detection, evidence-grounded reporting | Architecture designed; no pipeline code yet |
-| **[FinGuard](projects/finguard/)** | Financial fraud and AML intelligence — transaction features, graph motifs, evidence-grounded explanations, human-in-the-loop investigation | Architecture designed; no pipeline code yet |
+| **[RELIA](packages/relia/)** | Shared AI reliability infrastructure: evidence contracts, provider adapters, cassettes, prompt registry, evaluation runner, regression bisection, tracing, cost ledger | **Implemented** (153+ tests); real-provider activation pending an API key |
+| **[TerraScope](projects/terrascope/)** | Geospatial environmental intelligence for the Pallikaranai Marsh (authoritative Ramsar IN2481 boundary): Sentinel-2 ingestion → SCL masking → seasonal composites → spectral indices → calibrated water-extent series → block-CV land-cover classification → epoch change detection → evidence contracts → API + MapLibre map | **End-to-end on real data** (219 scenes, 2019–2026; every number traceable to an artefact) |
+| **[FinGuard](projects/finguard/)** | Fraud/AML intelligence on synthetic IBM AML data: temporal splits → LightGBM baseline → 4 graph-motif detectors → alert ranking → evidence bundles → human-in-the-loop investigation queue with an immutable audit log → API + investigation client | **End-to-end on real acquired data**; every metric labelled synthetic |
 
-**Implemented today** (verified by the test suite): Python 3.13 uv workspace, the typed evidence
-contracts (`relia.contracts`), the portfolio data-path utility with external-drive validation
-(`relia.config.paths`), RELIA's core interface definitions, and the `relia check-data-root` CLI.
-Nothing beyond this list is implemented; project READMEs and `docs/` mark what is designed vs.
-built.
+**335 tests green** across the workspace; ruff and mypy clean. No fabricated metrics anywhere —
+each number in the READMEs traces to a reproducible command and a JSON artefact on the data root.
+
+## Headline results (all reproducible; artefacts on the data root)
+
+- **TerraScope water seasonality**: NE-monsoon water +9.1 pp over dry season, bootstrap 95% CI
+  [4.0, 14.9] (10,000 resamples over 137 usable dates; 58 of 195 abstained on the coverage gate).
+  The three highest-water dates fall in Nov–Dec 2021 — the December 2021 Chennai floods.
+- **TerraScope epoch change**: winter water 25.05% → 24.74% between 2019-20 and 2023-24
+  (gained 0.94% / lost 1.24% of 392,861 compared pixels), with per-pixel uncertainty maps.
+- **TerraScope classification**: 58.97% ± 3.22% spatial-block-CV agreement with WorldCover-derived
+  labels — explicitly *not* real-world map accuracy.
+- **FinGuard fraud baseline**: HI-Small test PR-AUC 0.0159 (15.6× base rate), 92% precision at a
+  0.1% alert budget (rank-based operating points; synthetic data).
+- **FinGuard alert ranking**: fan-in precision on detectable planted attempts 0.0 → 0.667 at the
+  0.1% budget (test-period, ranker trained on train-period alerts only).
 
 ## Shared architecture
 
 ```
                  ┌──────────────────────────────┐
                  │  RELIA (packages/relia)      │
-                 │  providers · tracing ·       │
-                 │  evaluations · replay ·      │
-                 │  contracts (evidence) ·      │
-                 │  regression · observability  │
+                 │  contracts · providers ·     │
+                 │  replay · prompts ·          │
+                 │  evaluations · regression ·  │
+                 │  tracing · observability     │
                  └──────────┬───────────────────┘
-                            │ typed evidence contracts,
+                            │ evidence contracts,
                             │ provider + eval interfaces
               ┌─────────────┴─────────────┐
    ┌──────────┴──────────┐     ┌──────────┴──────────┐
    │ TerraScope          │     │ FinGuard            │
-   │ satellite imagery → │     │ transactions →      │
-   │ indices → classify →│     │ features → model →  │
-   │ change → evidence → │     │ graph motifs →      │
-   │ API + map           │     │ RAG → investigation │
+   │ pipeline → evidence │     │ pipeline → evidence │
+   │ → FastAPI + map     │     │ → queue → FastAPI   │
    └─────────────────────┘     └─────────────────────┘
 ```
 
-Every important generated claim is a `relia.contracts.EvidenceContract`: claim text, typed
-evidence references, methodology, confidence/uncertainty, validation status, limitations and
-explicit abstention. See [docs/decisions/0002-evidence-contracts.md](docs/decisions/0002-evidence-contracts.md).
+`relia.contracts.evidence.EvidenceContract` is the shared verification envelope: claim text,
+typed evidence references, methodology, confidence/uncertainty, validation status, limitations
+and explicit abstention — enforced invariants (abstained ⇒ reason; `VALID` ⇒ ≥ 1 evidence ref).
+Design: [docs/decisions/0002-evidence-contracts.md](docs/decisions/0002-evidence-contracts.md).
 
 ## Technology stack
 
-- **Python 3.13** managed by **uv** (workspace + lockfile); pytest, ruff, mypy
-- **Pydantic v2** for schemas and evidence contracts
-- Geospatial (TerraScope, planned): pystac-client, planetary-computer, rasterio, GeoPandas,
-  xarray — AOI-bounded COG access only
-- ML (planned): scikit-learn, LightGBM (CPU-first; spatial block CV / temporal splits)
-- Backend (planned): FastAPI, PostgreSQL/PostGIS; Frontend (planned): React + TypeScript,
-  MapLibre for TerraScope
-- LLM orchestration (planned): provider-agnostic adapters behind RELIA; LangGraph only where
-  stateful orchestration is justified
+- **Python 3.13** via **uv** (workspace + lockfile); pytest, ruff, mypy
+- **Pydantic v2** schemas; **scikit-learn / LightGBM** (CPU-first; spatial block CV / temporal
+  splits only — ADR-0006); **rasterio / GeoPandas / pystac-client** (AOI-bounded COG access)
+- **FastAPI** services with static, build-less frontends (MapLibre via CDN — ADR-0007)
+- **Docker**: CI-built images only (no local Docker — ADR-0007); datasets mounted, never baked in
 
 ## Repository layout
 
@@ -67,83 +70,76 @@ explicit abstention. See [docs/decisions/0002-evidence-contracts.md](docs/decisi
 ├── packages/relia/            # shared reliability infrastructure
 ├── projects/terrascope/       # geospatial environmental intelligence
 ├── projects/finguard/         # fraud/AML intelligence
-├── infrastructure/            # docker, scripts, database, CI assets
-├── data/                      # manifests + samples (never raw datasets)
+├── infrastructure/docker/     # service containers (CI-built) + compose
+├── infrastructure/scripts/    # environment audit
+├── data/manifests/            # dataset manifests (licensing, sizes, checksums)
 ├── docs/
-│   ├── architecture/          # system + per-project design
-│   ├── decisions/             # architecture decision records (ADRs)
-│   ├── data-sources/          # dataset research: licensing, sizes, access
+│   ├── architecture/          # system + per-project design, deployment
+│   ├── decisions/             # ADRs 0001–0007
+│   ├── data-sources/          # dataset research (licensing, access, sizes)
 │   ├── evaluations/           # evaluation reports (as they exist)
-│   └── implementation-plans/  # roadmap and setup reports
-└── .github/workflows/         # CI
+│   └── implementation-plans/  # roadmap, round plans, setup reports
+└── .github/workflows/ci.yml   # lint + tests + docker builds
 ```
-
-Sub-package layout inside each project follows the project's `pyproject.toml` (`src/` core
-package plus pipeline directories); see ADR-0001.
 
 ## Data storage
 
-Substantial datasets live **outside the repository** on an external drive:
-
-- Root: `PORTFOLIO_DATA_ROOT` (deployed value: `D:\GITHUB\AI-Portfolio\Portfolio data`)
-- Layout: `terrascope/{raw,interim,processed,models,exports}`, `finguard/{raw,interim,processed,models}`,
-  `shared/{caches,temporary}`
-- No raw datasets, rasters or model binaries are committed; manifests with licensing, sizes and
-  checksums live in [`data/manifests/`](data/manifests/)
-
-The single source of truth is the `PORTFOLIO_DATA_ROOT` environment variable (fallback: the
-local, gitignored `.env`). Code fails loudly — with no silent fallback to the internal drive —
-when the root is missing, unusable or not writable.
+Substantial datasets live **outside the repository** on an external drive, resolved exclusively
+through `PORTFOLIO_DATA_ROOT` (deployed value: `D:\GITHUB\AI-Portfolio\Portfolio data`; fallback:
+the local, gitignored `.env`). Code fails loudly — no silent fallback to the internal drive.
 
 ```powershell
-# persistent (user-level)
-setx PORTFOLIO_DATA_ROOT "D:\GITHUB\AI-Portfolio\Portfolio data"
-# session-only
-$env:PORTFOLIO_DATA_ROOT = "D:\GITHUB\AI-Portfolio\Portfolio data"
+setx PORTFOLIO_DATA_ROOT "D:\GITHUB\AI-Portfolio\Portfolio data"   # persistent
+uv run relia check-data-root                                       # verify
 ```
 
-Verify at any time:
-
-```powershell
-uv run relia check-data-root
-uv run python infrastructure/scripts/check_env.py
-```
+Budgets and the per-download approval gate are enforced per [AGENTS.md](AGENTS.md); manifests
+with licensing, sizes and checksums live in [`data/manifests/`](data/manifests/).
 
 ## Running and reproducing
 
 ```powershell
-# 1. Install uv (https://docs.astral.sh/uv/), then from the repo root:
-uv sync                     # creates .venv (Python 3.13) from uv.lock
+uv sync                                        # Python 3.13 venv from uv.lock
+uv run pytest && uv run ruff check .           # 335 tests, lint
+uv run relia check-data-root                   # dataset root health
 
-# 2. Run tests, lint and the data-root check
-uv run pytest
-uv run ruff check .
-uv run relia check-data-root
+# TerraScope service (read-only analysis + map): http://127.0.0.1:8801
+uv run uvicorn terrascope.api.app:app --port 8801
+# FinGuard investigation service (queue + audit): http://127.0.0.1:8802
+uv run uvicorn finguard.api.app:app --port 8802
+
+# Reproduce TerraScope's numbers (offline from the cached record):
+uv run --project projects/terrascope python -m terrascope.ingestion water --start 2019-04-01 --end 2026-10-31
+uv run --project projects/terrascope python projects/terrascope/scripts/seasonality_analysis.py
+uv run --project projects/terrascope python projects/terrascope/scripts/run_change_detection.py --epoch-a winter_2019-20 --epoch-b winter
+
+# Reproduce FinGuard's numbers (requires the acquired datasets; see manifests):
+uv run --project projects/finguard python projects/finguard/scripts/run_fraud_baseline.py
+uv run --project projects/finguard python projects/finguard/scripts/evaluate_alert_ranking.py
 ```
 
-CI (`.github/workflows/ci.yml`) runs the same three steps on every push/PR.
-Evaluation reproduction commands will be documented alongside actual evaluations in
-[`docs/evaluations/`](docs/evaluations/) as they exist — no evaluation results are reported
-before they are reproducible from a real run.
+RELIA evaluations: `uv run relia eval run --help` (deterministic checks; LLM answer sources need
+`RELIA_*` keys in `.env` — see [docs/architecture/relia.md](docs/architecture/relia.md)).
 
 ## Engineering standards
 
-- Every meaningful module has tests; heavy dependencies are added only when their feature lands
-  (ADR-0005)
-- Deterministic checks are separated from LLM-as-judge evaluation; confidence intervals only
-  where statistically justified
-- No fabricated metrics, findings or user numbers — anywhere
-- Spatial block cross-validation (TerraScope) and temporal splits (FinGuard) are mandatory;
-  random splits are treated as leakage (ADR-0006)
-- Suspicious-pattern detection is never conflated with proof of criminal activity (FinGuard);
-  observed change is never conflated with causation (TerraScope)
-- Unknown or unverified facts are documented as such, including in dataset manifests
+- Validation discipline: spatial block CV (TerraScope), temporal splits (FinGuard); random splits
+  are leakage (ADR-0006)
+- Deterministic checks separated from LLM-as-judge; regression claims require bootstrap CIs to
+  exclude zero (relia.regression)
+- Suspicious pattern ≠ proven laundering; observed change ≠ causation; abstention when evidence
+  is insufficient
+- No fabricated metrics, findings or user numbers — anywhere; unverified facts are marked as such
+- Heavy dependencies added only when their feature lands (ADR-0005)
 
-## Known limitations (current phase)
+## Known limitations (honest)
 
-- No pipeline, API or frontend code exists yet — see the
-  [roadmap](docs/implementation-plans/roadmap.md)
-- RELIA provider adapters, evaluation runners, tracing exporters and regression bisection are
-  interface-only or planned
-- Docker is not installed on the development machine; database/infrastructure work is deferred
-  until the core pipelines exist
+- RELIA's hosted-provider adapters are implemented and tested against scripted providers; real
+  API activation awaits owner keys (RAG explanations and groundedness eval light up then)
+- FinGuard's fan-out/cycle alerts are not yet ranked (only fan-in is); structuring and
+  rapid-movement are validated on synthetic fixtures only (no planted ground truth in HI/LI-Small)
+- TerraScope's absolute water levels depend on the calibrated MNDWI threshold (stated in every
+  contract); the classification measures weak-label agreement, not map accuracy
+- No database: queue state is append-only JSONL on the data root; Postgres/PostGIS is planned but
+  intentionally not provisioned (deployment doc)
+- CI's first real run happens on the first push (GitHub repo creation pending)
