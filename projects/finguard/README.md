@@ -19,23 +19,27 @@ JSONs live in `<data_root>/finguard/processed/`; all data is SYNTHETIC. See:
 ## Layout
 
 ```
-src/finguard/      core package: config (data-dir resolution via relia), schema (canonical
-                   transaction schema + validation), ingest (IBM AML CSV -> Parquet),
-                   splitting (temporal split + leakage assertions), synthetic (typology fixtures)
-backend/           service layer (planned)
-data/              further dataset loaders (planned; data itself lives on the external drive)
-features/          temporal transaction feature engineering (planned; leakage gate ready)
-models/            LightGBM fraud model, imbalance handling (planned; splits implemented)
-graph/             transaction graph + AML motif detectors (planned; synthetic ground truth ready)
-rag/               evidence-grounded explanation via RELIA (planned)
-investigation/     alert queue, human review workflow, audit log (planned)
-evidence/          evidence-contract production for alerts (planned)
-evaluation/        PR-AUC, alert-threshold metrics, leakage tests (planned)
-api/               FastAPI surface (planned)
-frontend/          investigation UI (planned)
-configs/           experiment configuration (template present)
-tests/             synthetic-fixture unit + smoke tests (working)
+src/finguard/          core package (flat modules):
+  config.py            data-dir resolution via relia (PORTFOLIO_DATA_ROOT, raw/interim/
+                       processed/models subdirs)
+  schema.py            canonical transaction schema + validation (never silently drops rows)
+  ingest.py            IBM AML CSV -> Parquet conversion (chunked, validated, manifest report)
+  splitting.py         temporal train/valid/test split + leakage assertions (ADR-0006)
+  synthetic.py         deterministic typology fixtures (fan-in/out, structuring, cycle,
+                       scatter-gather) with PlantedMotif ground truth
+  features.py          leakage-safe baseline features (strictly-prior account aggregates)
+  model.py             LightGBM fraud baseline + rank-based alert-budget operating points
+  graph.py             fan-in / structuring detectors (vectorized, 5M-edge scale)
+  patterns.py          AMLSim Patterns.txt ground-truth parser
+scripts/               reproducible runs: ingest_raw.py, run_fraud_baseline.py,
+                       evaluate_motifs.py (reports to <data_root>/finguard/processed)
+configs/               experiment configuration (template present)
+tests/                 synthetic-fixture unit + smoke tests (dataset-free)
 ```
+
+Planned (not implemented): alert ranking module (M1.5/F1), evidence-contract wiring
+(M1.5/F2), fan-out + cycle detectors (M1.5/F3), RAG explanations via RELIA (M2),
+investigation queue/workflow, FastAPI surface, investigation UI.
 
 ## Non-negotiables
 
