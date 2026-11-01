@@ -43,8 +43,20 @@ def _resolve_root(data_root: Path | None) -> Path:
         ) from exc
 
 
+def _default_static_dir() -> Path | None:
+    """Frontend directory relative to this file (projects/terrascope/frontend)."""
+    candidate = Path(__file__).resolve().parents[3] / "frontend"
+    return candidate if candidate.is_dir() else None
+
+
 def create_app(data_root: Path | None = None, static_dir: Path | None = None) -> FastAPI:
-    """Build the API; ``data_root``/``static_dir`` injection keeps tests offline."""
+    """Build the API; ``data_root``/``static_dir`` injection keeps tests offline.
+
+    ``static_dir`` defaults to the bundled frontend (auto-detected next to the
+    package) so ``uvicorn terrascope.api.app:app`` serves the UI out of the box.
+    """
+    if static_dir is None:
+        static_dir = _default_static_dir()
 
     def root_dep() -> Path:
         return _resolve_root(data_root)

@@ -44,13 +44,25 @@ def _resolve_root(data_root: Path | None) -> Path:
         raise HTTPException(status_code=503, detail=f"Dataset root unavailable: {exc}") from exc
 
 
+def _default_static_dir() -> Path | None:
+    """Frontend directory relative to this file (projects/finguard/frontend)."""
+    candidate = Path(__file__).resolve().parents[3] / "frontend"
+    return candidate if candidate.is_dir() else None
+
+
 def create_app(
     queue_paths: QueuePaths | None = None,
     *,
     data_root: Path | None = None,
     static_dir: Path | None = None,
 ) -> FastAPI:
-    """Build the API; injections keep tests offline and hermetic."""
+    """Build the API; injections keep tests offline and hermetic.
+
+    ``static_dir`` defaults to the bundled frontend (auto-detected next to the
+    package) so ``uvicorn finguard.api.app:app`` serves the UI out of the box.
+    """
+    if static_dir is None:
+        static_dir = _default_static_dir()
 
     def queue_dep() -> InvestigationQueue:
         try:
