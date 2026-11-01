@@ -1,6 +1,8 @@
 # FinGuard dataset manifest
-# Status: PLANNED - nothing acquired yet. Kaggle terms must be accepted by the
-# account owner before any download; record acceptance state here at that time.
+# Status: IBM AML HI-Small + LI-Small ACQUIRED 2026-11-01 (owner-accepted Kaggle terms,
+# manual download, byte sizes match the listing exactly). Parquet conversions in
+# <root>/finguard/processed via finguard.ingest; raw CSVs untouched. PaySim + IEEE-CIS
+# remain planned/deferred.
 # Storage budget: <= 5 GB total; no single download > 500 MB without approval.
 
 schema_version: "1.0.0"
@@ -12,39 +14,51 @@ datasets:
 
   - id: ibm-aml-li-small
     name: IBM AML synthetic transactions - LI-Small
-    provider: "IBM (synthetic data for AML research; Weber et al. 2019 'Tabformer')"
-    source_url: "https://www.kaggle.com/datasets (verify exact IBM-AML listing)"
-    license: "research distribution - verify exact terms at download"
+    provider: "IBM (Erik Altman et al.; Kaggle owner ealtman2019; Weber et al. 2019 origin)"
+    source_url: "https://www.kaggle.com/datasets/ealtman2019/ibm-transactions-for-anti-money-laundering-aml (file: LI-Small_Trans.csv)"
+    license: "CDLA-Sharing-1.0 (verified on Kaggle listing 2026-10-31 and IBM/AML-Data README); Kaggle account terms acceptance required at download"
     spatial_coverage: n/a
-    temporal_coverage: "synthetic ~200-day window (approx., verify)"
+    temporal_coverage: "synthetic primary window 2022-09-01..2022-09-10 (10 days); some laundering transactions occur AFTER the window (all post-window transactions are laundering; Kaggle discussion 427517)"
     resolution: n/a
     format: CSV
-    expected_size: "tens of MB (approx., verify)"
-    access_method: "Kaggle (manual / authenticated CLI after terms acceptance)"
-    required_preprocessing: "schema validation, timestamp parsing, typology-edge extraction for graph"
-    intended_use: "first transaction graph + AML motif development (smallest subset)"
-    known_limitations: "synthetic; planted typologies only; is-laundering flag labels planted patterns"
-    acquisition_date: null
-    checksums: null
-    status: planned
+    expected_size: "LI-Small_Trans.csv 650,422,357 bytes + LI-Small_Patterns.txt 99,156 bytes (on-disk, matches Kaggle listing)"
+    access_method: "Kaggle manual download by account owner (terms accepted 2026-11-01); 650.42 MB exceeded the 500 MB gate - owner's manual acquisition = recorded approval"
+    required_preprocessing: "DONE 2026-11-01: validated + converted to processed/LI-Small_trans.parquet (229.1 MB) via finguard.ingest"
+    intended_use: "transaction graph + AML motif development (lower-imbalance regime)"
+    known_limitations: "synthetic; planted typologies only (3,565 / 6,924,049 rows = 0.051% laundering); 8 pattern types in LI-Small_Patterns.txt (117 attempts total, FAN-OUT 19 max)"
+    files:
+      - "LI-Small_Trans.csv (650,422,357 bytes)"
+      - "LI-Small_Patterns.txt (99,156 bytes)"
+    verified_rows: "6,924,049 transactions; 3,565 laundering (ingest report 2026-11-01)"
+    acquisition_date: "2026-11-01"
+    checksums:
+      LI-Small_Trans.csv: "sha256:f7a9940339c78b5d1476071505b5867c0f5319640b9c4279d13f531bf965319d"
+      LI-Small_Patterns.txt: "sha256:734c15b7ff4be1a04a3529bd1524b92c1e8b62289d3ce4881423596ee47a208f"
+    status: acquired
 
   - id: ibm-aml-hi-small
     name: IBM AML synthetic transactions - HI-Small
-    provider: "IBM (synthetic data for AML research; Weber et al. 2019 'Tabformer')"
-    source_url: "https://www.kaggle.com/datasets (verify exact IBM-AML listing)"
-    license: "research distribution - verify exact terms at download"
+    provider: "IBM (Erik Altman et al.; Kaggle owner ealtman2019; Weber et al. 2019 origin)"
+    source_url: "https://www.kaggle.com/datasets/ealtman2019/ibm-transactions-for-anti-money-laundering-aml (file: HI-Small_Trans.csv)"
+    license: "CDLA-Sharing-1.0 (verified on Kaggle listing 2026-10-31 and IBM/AML-Data README); Kaggle account terms acceptance required at download"
     spatial_coverage: n/a
-    temporal_coverage: "synthetic ~200-day window (approx., verify)"
+    temporal_coverage: "synthetic primary window 2022-09-01..2022-09-10 (10 days); some laundering transactions occur AFTER the window (all post-window transactions are laundering; Kaggle discussion 427517)"
     resolution: n/a
     format: CSV
-    expected_size: "~250 MB, ~5.2M transactions (approx., verify)"
-    access_method: "Kaggle (manual / authenticated CLI after terms acceptance)"
-    required_preprocessing: "same as LI-Small; columnar conversion (Parquet) for pipeline efficiency"
-    intended_use: "primary fraud model + graph motif evaluation dataset"
-    known_limitations: "synthetic; class imbalance extreme (planted typologies ~0.1% of transactions)"
-    acquisition_date: null
-    checksums: null
-    status: planned
+    expected_size: "HI-Small_Trans.csv 475,664,283 bytes + HI-Small_Patterns.txt 323,844 bytes (on-disk, matches Kaggle listing)"
+    access_method: "Kaggle manual download by account owner (terms accepted 2026-11-01); 475.66 MB below the 500 MB gate"
+    required_preprocessing: "DONE 2026-11-01: validated + converted to processed/HI-Small_trans.parquet (164.2 MB) via finguard.ingest; raw CSV header has duplicate 'Account' columns, pandas mangles receiver to 'Account.1'"
+    intended_use: "primary fraud model + graph motif evaluation dataset (higher illicit ratio)"
+    known_limitations: "synthetic; class imbalance extreme (5,177 / 5,078,345 rows = 0.102% laundering); 8 planted AMLSim pattern types in HI-Small_Patterns.txt (FAN-IN 40, FAN-OUT 48, CYCLE 54, STACK 43, BIPARTITE 49, SCATTER-GATHER 44, GATHER-SCATTER 51, RANDOM 41 attempts)"
+    files:
+      - "HI-Small_Trans.csv (475,664,283 bytes)"
+      - "HI-Small_Patterns.txt (323,844 bytes)"
+    verified_rows: "5,078,345 transactions; 5,177 laundering (ingest report 2026-11-01)"
+    acquisition_date: "2026-11-01"
+    checksums:
+      HI-Small_Trans.csv: "sha256:b19d39f515523373f991b689c07e11e7b0b95c17a2c27a87d91584ae16c5b040"
+      HI-Small_Patterns.txt: "sha256:2c546b5ce6009e73851f0139af053cf845f08bf92f3bc82fe1eb937dec2ef39b"
+    status: acquired
 
   - id: paysim
     name: PaySim synthetic mobile-money transactions

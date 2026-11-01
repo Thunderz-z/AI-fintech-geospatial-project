@@ -3,7 +3,19 @@ name = "finguard"
 version = "0.1.0"
 description = "Financial fraud and AML intelligence: transaction features, graph analytics, evidence-grounded explanations and human-in-the-loop investigation."
 requires-python = ">=3.13"
-dependencies = ["relia"]
+dependencies = [
+    "relia",
+    # Data stack (ADR-0005 "FinGuard pipelines" row); added in M1 step 2.
+    # All four ship cp313 Windows wheels; no CUDA/GPU extras (CPU-first rule).
+    "pandas>=2.2.3",
+    "pyarrow>=18.0",
+    "lightgbm>=4.5.0",
+    "networkx>=3.4",
+    # Metric computation (PR-AUC/ROC-AUC) for the M1 fraud baseline; hand-
+    # rolling average precision risks subtly wrong numbers, so use the
+    # reference implementation instead (ADR-0005 gate: cp313 wheels, ~40 MB).
+    "scikit-learn>=1.6",
+]
 
 [tool.uv.sources]
 relia = { workspace = true }

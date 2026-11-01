@@ -4,8 +4,15 @@ Financial fraud detection and AML intelligence on synthetic transaction data —
 features, imbalance-aware models, transaction-graph AML typologies, evidence-grounded RAG
 explanations and a human-in-the-loop investigation workflow.
 
-**Status: designed, not implemented.** The package skeleton, configuration integration and
-tests exist; the pipeline does not. See:
+**Status: M1 + M1.5 implemented on real acquired data.**
+M1: schema/ingest/splitting/synthetic fixtures, leakage-safe features, LightGBM baseline
+(HI-Small test PR-AUC 0.0159 = 15.6x base rate; 92% precision at a 0.1% alert budget),
+fan-in/structuring detectors. M1.5: fan-in alert ranking (precision on detectable planted
+attempts 0.667 at the 0.1% budget vs 0.000 unranked), EvidenceContract bundles for alerts
+(with thin-evidence abstention), fan-out + cycle detectors (fan-out mirrors fan-in's
+recall/precision profile; cycle is the inverse: precision 0.166-0.385, detectable recall
+0.66 at degree_cap=100). RAG, investigation workflow and API still planned. Metrics JSONs
+live in `<data_root>/finguard/processed/`; all data is SYNTHETIC. See:
 
 - Architecture: [`../../docs/architecture/finguard.md`](../../docs/architecture/finguard.md)
 - Dataset research: [`../../docs/data-sources/finguard-datasets.md`](../../docs/data-sources/finguard-datasets.md)
@@ -15,21 +22,31 @@ tests exist; the pipeline does not. See:
 ## Layout
 
 ```
-src/finguard/      core package (config: validated dataset-dir resolution via relia)
-backend/           service layer (planned)
-data/              dataset loaders + validation (planned; data itself lives on the external drive)
-features/          temporal transaction feature engineering (planned)
-models/            LightGBM fraud model, temporal splits, imbalance handling (planned)
-graph/             transaction graph + AML motif detectors (planned)
-rag/               evidence-grounded explanation via RELIA (planned)
-investigation/     alert queue, human review workflow, audit log (planned)
-evidence/          evidence-contract production for alerts (planned)
-evaluation/        PR-AUC, alert-threshold metrics, leakage tests (planned)
-api/               FastAPI surface (planned)
-frontend/          investigation UI (planned)
-configs/           experiment configuration (template present)
-tests/             synthetic-fixture unit + smoke tests (working)
+src/finguard/          core package (flat modules):
+  config.py            data-dir resolution via relia (PORTFOLIO_DATA_ROOT, raw/interim/
+                       processed/models subdirs)
+  schema.py            canonical transaction schema + validation (never silently drops rows)
+  ingest.py            IBM AML CSV -> Parquet conversion (chunked, validated, manifest report)
+  splitting.py         temporal train/valid/test split + leakage assertions (ADR-0006)
+  synthetic.py         deterministic typology fixtures (fan-in/out, structuring, cycle,
+                       scatter-gather) with PlantedMotif ground truth
+  features.py          leakage-safe baseline features (strictly-prior account aggregates)
+  model.py             LightGBM fraud baseline + rank-based alert-budget operating points
+  graph.py             fan-in / fan-out / cycle / structuring detectors (vectorized,
+                       5M-edge scale; cycle via scipy SCC pre-filter + bounded DFS)
+  patterns.py          AMLSim Patterns.txt ground-truth parser
+  ranking.py           fan-in alert ranking features + LightGBM ranker (M1.5/F1)
+  evidence.py          alert -> relia.contracts.EvidenceContract bundles (M1.5/F2)
+scripts/               reproducible runs: ingest_raw.py, run_fraud_baseline.py,
+                       evaluate_motifs.py (v2: fan-out/cycle), evaluate_alert_ranking.py,
+                       export_alert_evidence.py (reports to <data_root>/finguard/processed)
+configs/               experiment configuration (template present)
+tests/                 synthetic-fixture unit + smoke tests (dataset-free)
 ```
+
+Planned (not implemented): alert-level ranking features for fan-out/cycle (only fan-in
+is ranked so far), RAG explanations via RELIA (M2), investigation queue/workflow,
+FastAPI surface, investigation UI.
 
 ## Non-negotiables
 
