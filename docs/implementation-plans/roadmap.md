@@ -13,16 +13,19 @@ Agent 2 = TerraScope, Agent 3 = FinGuard, Agent 4 = Architecture & QA (ownership
 - Codebase Memory MCP watcher active; ADRs 0001–0006; dataset research + manifests
 - README / AGENTS / architecture docs; CI workflow
 
-## M0 — TerraScope first data pipeline (Agent 2, lead focus)
+## M0 — TerraScope first data pipeline (Agent 2, lead focus) — **COMPLETE 2026-11-01** (report: [`../../projects/terrascope/docs/M0-REPORT.md`](../../projects/terrascope/docs/M0-REPORT.md))
 
-1. Verify authoritative Pallikaranai boundary sources (TN Wetlands Authority, Ramsar RSIS);
-   else finalize documented approximate boundary (blocks all spatial claims)
-2. Add geospatial dependencies (ADR-0005 gate: 3.13 Windows wheels, disk check)
-3. STAC search + AOI windowed retrieval for Sentinel-2 L2A (manifest: `sentinel-2-l2a-aoi`)
-4. SCL masking + seasonal median compositing on a 2–3 date sample; visual QA
-5. NDVI/NDWI/MNDWI/NDBI on composites; water-extent time series v0 with cloud-fraction
-   gating and abstention
-6. Evidence contracts for every numeric claim; spatial block CV scaffolding
+1. ✅ Verify authoritative Pallikaranai boundary sources — **Ramsar RSIS IN2481 verified AND
+   acquired** (WFS GeoJSON, CC BY 4.0; measured 1,246.76 ha vs declared 1,247.54 ha)
+2. ✅ Add geospatial dependencies (ADR-0005 gate: 3.13 Windows wheels, disk check)
+3. ✅ STAC search + AOI windowed retrieval for Sentinel-2 L2A — full record 2019-04 → 2026-10
+   acquired (approval-gated; per-file SHA-256 acquisition log; baseline dedupe)
+4. ✅ SCL masking + seasonal median compositing + visual QA (quicklooks PASS; registration to
+   the Ramsar boundary verified)
+5. ✅ NDVI/NDWI/MNDWI/NDBI on composites; water-extent series v0 with 80% valid-fraction
+   gating and explicit abstentions (threshold sensitivity quantified)
+6. ✅ Evidence contracts for numeric claims (water-extent, valid status) + spatial block CV
+   scaffolding (deterministic disjoint folds + invariant validator, tested)
 
 ## M1 — FinGuard baseline (Agent 3, lead focus, parallel with M0)
 

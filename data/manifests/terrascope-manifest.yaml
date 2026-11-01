@@ -26,10 +26,10 @@ datasets:
     intended_use: "spectral indices, land-cover classification, change detection"
     known_limitations: "SCL cloud-probability confusion (no dedicated shadow class); L2A backfill varies; processing baselines differ over time"
     acquisition_date: "2026-11-01"
-    checksums: "raw/sentinel-2-l2a/acquisition_log.jsonl (sha256 per file, 98 files)"
-    acquired_sample: "14 scenes 2023-10-07..2024-03-30 (13 unique sensing dates after processing-baseline dedupe), tile T44PMV, eo:cloud_cover<20; 144 MB raw; windowed to composite-grid bounds (approx bbox, EPSG:32644)"
-    derived_products: "seasonal composites (winter/summer/monsoon-post) + NDVI/NDWI/MNDWI/NDBI + water-extent series 2023-10..2024-03 with per-date abstentions + evidence contract (processed/water-extent/)"
-    status: acquired-sample  # first approved retrievals; further backfill per step-4 QA
+    checksums: "raw/sentinel-2-l2a/acquisition_log.jsonl (sha256 per file, 1533 files)"
+    acquired_sample: "full available record 2019-04-01..2026-10-11: 219 scenes (195 unique sensing dates after processing-baseline dedupe), tile T44PMV, eo:cloud_cover<20; 2226 MB raw; windowed to composite-grid bounds (approx bbox, EPSG:32644)"
+    derived_products: "seasonal composites + NDVI/NDWI/MNDWI/NDBI for the 2023-10..2024-03 QA window; full-record water-extent series (195 dates, 137 usable, 58 abstained) + evidence contracts (processed/water-extent/)"
+    status: acquired  # M0 record complete; further acquisition only for new dates
 
   - id: esa-worldcover-2021-v200-aoi
     name: ESA WorldCover 2021 v200 AOI subset
