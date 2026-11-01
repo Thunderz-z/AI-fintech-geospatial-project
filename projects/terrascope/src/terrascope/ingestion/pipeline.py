@@ -376,6 +376,7 @@ def run_composite(
     config: IngestionConfig | None = None,
     root: Path | None = None,
     gate: DownloadGate | None = None,
+    season_prefix: str | None = None,
 ) -> CompositeReport:
     """Build seasonal median composites from cached windows (fully offline).
 
@@ -391,6 +392,9 @@ def run_composite(
         root: Data-root override (tests); default resolves via the data root.
         gate: Unused for local reads; accepted so callers can pass one gate
             through every stage (local cache reads never trigger it).
+        season_prefix: Optional epoch label so multi-year composites do not
+            overwrite each other — ``"2019-20"`` writes ``winter_2019-20/``
+            instead of ``winter/`` (change detection compares epochs).
 
     Returns:
         :class:`CompositeReport` with written paths and coverage diagnostics.
@@ -417,7 +421,8 @@ def run_composite(
     for season, indices in season_groups.items():
         if not indices:
             continue
-        season_dir = _processed_dir(root) / season
+        season_name = f"{season}_{season_prefix}" if season_prefix else season
+        season_dir = _processed_dir(root) / season_name
         stacks: dict[str, list[np.ndarray]] = {band: [] for band in config.all_bands}
         season_scene_ids: list[str] = []
         for index in indices:
@@ -457,7 +462,9 @@ def run_composite(
 
         provenance_path = season_dir / "provenance.json"
         provenance = {
-            "season": season,
+            "season": season_name,
+            "season_base": season,
+            "season_prefix": season_prefix,
             "start": start.isoformat(),
             "end": end.isoformat(),
             "scene_ids": season_scene_ids,
@@ -492,8 +499,8 @@ def run_composite(
         report.composites.extend(written)
         report.provenance.append(provenance_path)
         report.scenes_used.extend(season_scene_ids)
-        report.season_scene_counts[season] = len(season_scene_ids)
-        report.valid_obs_max[season] = max_valid
+        report.season_scene_counts[season_name] = len(season_scene_ids)
+        report.valid_obs_max[season_name] = max_valid
     return report
 
 

@@ -81,6 +81,14 @@ def _build_parser() -> argparse.ArgumentParser:
                 default=None,
                 help="authoritative boundary GeoJSON (default: Ramsar IN2481 on the data root)",
             )
+        if name in ("composite", "analyse"):
+            cmd.add_argument(
+                "--season-prefix",
+                type=str,
+                default=None,
+                help="epoch label for the composite dirs, e.g. 2019-20 -> winter_2019-20/ "
+                "(prevents overwriting composites from another epoch)",
+            )
         if name == "water":
             cmd.add_argument(
                 "--calibration",
@@ -155,7 +163,13 @@ def main(argv: list[str] | None = None) -> int:
 
     # composite
     if args.command == "composite":
-        report = run_composite(aoi, start=args.start, end=args.end, root=root_path)
+        report = run_composite(
+            aoi,
+            start=args.start,
+            end=args.end,
+            root=root_path,
+            season_prefix=getattr(args, "season_prefix", None),
+        )
         print(f"scenes used: {len(report.scenes_used)}")
         for season, count in report.season_scene_counts.items():
             max_obs = report.valid_obs_max[season]
@@ -250,7 +264,13 @@ def _run_analyse(args: argparse.Namespace, root_path: Path | None) -> int:
 
     aoi = approximate_pallikaranai_aoi()
     root = root_path if root_path is not None else data_dir()
-    composite_report = run_composite(aoi, start=args.start, end=args.end, root=root)
+    composite_report = run_composite(
+        aoi,
+        start=args.start,
+        end=args.end,
+        root=root,
+        season_prefix=getattr(args, "season_prefix", None),
+    )
 
     season_dirs = sorted({path.parent for path in composite_report.provenance})
     for season_dir in season_dirs:
