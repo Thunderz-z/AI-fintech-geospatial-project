@@ -148,22 +148,6 @@ def detect_fan_in(
                     },
                 )
             )
-        if best is not None:
-            alerts.append(
-                MotifAlert(
-                    typology="fan_in",
-                    account=str(receiver),
-                    counter_account=None,
-                    tx_ids=best["tx_ids"],
-                    score={
-                        "distinct_senders": best["distinct"],
-                        "window_start": str(best["start"]),
-                        "window_end": str(best["end"]),
-                        "min_senders": min_senders,
-                        "window": str(window),
-                    },
-                )
-            )
 
     alerts.sort(key=lambda a: -a.score["distinct_senders"])
     return alerts
